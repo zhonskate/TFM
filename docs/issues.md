@@ -1,6 +1,6 @@
 # Preguntas respecto al FaaS
 
-- Seguridad (acceder a recursos de ejecuciones anteriores y aislamiento)
+- Seguridad (acceder a recursos de ejecuciones anteriores y aislamiento). Multi-tenancy.
 
 - Método de despliegue/ infraestrucutra (Kubernetes, o docker autogestionado)
 
