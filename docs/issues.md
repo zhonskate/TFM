@@ -15,3 +15,32 @@
 - Política de autoescalado, scale to zero, idling de contenedores, rutinas para mantenerlos warm.
 
 
+
+
+
+
+# Reunió 23/04
+
+- spark ejecucio on demand
+
+- contenedores multipotentes
+
+- pods dinamicament dls compartint recursos, soles per aillament
+
+- Namespaces jerarquics-recursos contenidors
+
+- Analisi del que hi ha disponible
+
+- Corda
+
+- analisi open source
+
+- experiment open source - cluster iti
+
+- Serverless computing - que aporta / vs stateless service
+
+## Memoria
+
+- Introducció
+
+- Previous art
