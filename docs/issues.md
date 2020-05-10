@@ -44,3 +44,22 @@
 - Introducció
 
 - Previous art
+
+
+# Notas 04-05
+
+Apalancamiento de recursos en sistemas multi-tenancy
+
+# Notas 7-05
+
+**Convocatoria extraordinaria desembre**
+
+Redactar resum del treball, desenvolupament del prototip
+
+discutible aillament. Dins del mateix tenan cridar funcio inclosa en contenidor. warm container just in case.
+
+Proposar algoritmes ploitica escalat. numero de instancies actives.
+
+Privades runtimes/imatges
+
+
