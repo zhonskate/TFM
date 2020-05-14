@@ -1,7 +1,7 @@
 
 # Título
 
-Estudio y comparativa de FaaS...
+Estudio y comparativa de tecnologías *FaaS* de código abierto.
 
 # Resumen
 
