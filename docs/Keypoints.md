@@ -48,11 +48,19 @@ OpenFaaS funciona con K8s y Docker Swarm.
 
 - **Autoscaling Policies:**
 
+Based on policies specified in AlertManager, read from Prometheus. Requests per second is the default setting. Totalmente configurable, se puede es calar en base a multiples requisitos y de multiples maneras. Para el escalado a cero se tiene que habilitar un idler. Bien el que ofrece OpenFaaS [por defecto](https://github.com/openfaas-incubator/faas-idler) o uno propio.
+
 - **Triggers:**
+
+[Aquí](https://docs.openfaas.com/reference/triggers/) se especifican los tipos de triggers soportados. Pero, en resumen, funciona con todo.
 
 - **Multi-tenancy:**
 
+OpenFaas es una plataforma que soporta la multi-tenancy.
+
 - **Platform Security:**
+
+OpenFaas tiene un [plugin de autencticación básico](https://github.com/openfaas/faas/tree/master/auth/basic-auth) por defecto, pero también soporta otros plugins con OAUTH2 para proteger la API.
 
 - **Isolation:**
 
