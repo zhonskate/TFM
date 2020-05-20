@@ -70,9 +70,19 @@ Those questions will be:
 
 - **Supported runtimes:**
 
-  OpenWhisk proporciona una [lista de runtimes oficiales](https://github.com/apache/openwhisk/blob/master/docs/actions.md#languages-and-runtimes) aunque también permite crear runtimes propios.
+  OpenWhisk proporciona una [lista de runtimes oficiales](https://github.com/apache/openwhisk/blob/master/docs/actions.md#languages-and-runtimes) aunque también permite crear runtimes propios. El funcionamiento de la creación de estos runtimes se explica [aquí](https://github.com/apache/openwhisk/blob/master/docs/actions-new.md). En resumen, debe implementar la interfaz de acción, una API REST que se define en base a tres métodos:
+
+  - Inicialización ( _POST /init_ ): El runtime debe ser capaz de recibir el payload de inicialización (el código).
+
+  - Activación ( _POST /run_ ) El runtime debe ser capaz de aceptar los argumentos de la llamada, preparar el contexto, correr la función y devolver el resultado.
+
+  - Logging: El runtime debe ser capaz de redirigir `stdout` y `stderr`.
+
+  A parte de esto, para que OpenWhisk lo reconozca, se tiene que dar de alta, creando archivos como su manifiesto.
 
 - **Code and dependences:**
+
+  El código será bien texto plano o un binario. Se pasa a la función init cuando la acción se instancia. Las dependecias se podrán añadir, bien subiendo el código como un binario o creando un runtime nuevo que las contenga. En el caso de node, por ejemplo, se puede subir un módulo entero comprimido y ejecutar su index.js, con todas las dependencias que lleva ya incluidas.
 
 - **Function requisites:**
 
@@ -93,6 +103,8 @@ Those questions will be:
   - El tiempo máximo de ejecución e inicialización puede ser configurado. Si se supera se devuelve un error.
 
 - **Deployment Method:**
+
+  OpenWhisk ofrece [diversas formas](https://openwhisk.apache.org/documentation.html#openwhisk_deployment) de ser desplegado. Lo más estable es sobre Kubernetes, pudiendo hacer uso de Helm. Para entornos de pruebas se puede desplegar directamente con Docker compose. Acepta despliegues haciendo uso algunas opciones de IaaC de Vagrant y Ansible también.
 
 - **Autoscaling Policies:**
 
