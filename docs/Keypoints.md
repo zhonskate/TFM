@@ -108,13 +108,27 @@ Those questions will be:
 
 - **Autoscaling Policies:**
 
+  cant find anything about autoscaling
+
 - **Triggers:**
+
+  los triggers están desacoplados de las acciones, para ello se asocian haciendo uso de las reglas. Todas las acciones asociadas a un trigger se activan cuando este se dispara. Tiene una integración bastante completa, permitiendo eventos comoMensajes en colas, cambios en bases de datos, llamadas a una API, etc.
+
+  Se pueden limitar, estableciendo un numero máximo de llamadas por minuto a un trigger en concreto.
 
 - **Multi-tenancy:**
 
+  Openwhisk permite la multi-tenancy. Existe una funcionalidad llamada wskadmin que permite la creación y edición de los namespaces, usuarios y sus permisos y límites.
+
 - **Platform Security:**
 
+  Users identify as themselves with a id/key o through a third-party authentication system as OAuth. [Source](https://medium.com/openwhisk/developing-serverless-backends-with-openwhisk-and-api-gateway-integrations-954c2528f4db).
+
 - **Isolation:**
+
+  Muy realcionado con autoscaling. Se pueden reutilizar contenedores para diversas invocaciones, eso seguro, pero no encuentro la politica de openwhisk para decidir que un 
+
+  
 
 ## **Fission**
 
@@ -129,6 +143,8 @@ Those questions will be:
 - **Autoscaling Policies:**
 
 - **Triggers:**
+
+  
 
 - **Multi-tenancy:**
 
