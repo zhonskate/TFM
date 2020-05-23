@@ -127,30 +127,47 @@ Those questions will be:
 - **Isolation:**
 
   Muy realcionado con autoscaling. Se pueden reutilizar contenedores para diversas invocaciones, eso seguro, pero no encuentro la politica de openwhisk para decidir que un 
-
   
 
 ## **Fission**
 
 - **Supported runtimes:**
 
+  Existe una [lista](https://docs.fission.io/docs/languages/) de lenguajes soportados. Se pueden crear nuevos entornos modificando los antiguos, es decir, cogiendo la imagen, añadiendo dependencias y resubiéndola. Por lo que se puede intuir se tienen que poder crear entornos de cero, estos deberían implementar alguna de las versiones de la interfaz. No he podido encontrar más info al respecto.
+
 - **Code and dependences:**
+
+  El código puede ser, bien un archivo independiente sin dependencias o un conjunto de librerías y código, bien en forma de carpeta o comprimido en binario. Para su uso se hará una llamada a la API correspondiente, según el entorno utilizado soporte.
 
 - **Function requisites:**
 
+  El código o el código y las dependencias, según el caso. Las finciones están ligadas a un entorno en concreto, y se asocian a un path de la plataforma, convirtiendo esto en su entrypoint. En caso de subirse comprimidas, los archivos tiene  que seguir cierta estructura, vista [aquí](https://docs.fission.io/docs/usage/package/). 
+
 - **Deployment Method:**
+
+  Kubernetes. It can be installed using Helm. 
 
 - **Autoscaling Policies:**
 
+  Depende del tipo de executor que se elija. PoolManager solo mantiene activa una isntancia de la misma función a la vez, y tiene contenedores warm con todas las funciones que hayan sido invocadas, para, en el caso de ser llamadas, instanciar una de ellas. PoolManager **no escala**. En el caso de newDeployment, escala sin límite, puduendo ser configurado el numero de instancias mínimas (conf [aquí](https://docs.fission.io/docs/usage/executor/)). Sacrifica el cold start por la capacidad de servir tráfico masivo.
+
+  En cuanto al scale-to-zero, PoolManager lo hace, aunque no elimina totalmente el coste computacional. NewDeployment es capaz de hacerlo en el caso en el que sea configurado así.
+
 - **Triggers:**
 
-  
+  Es un binding entre un evento y la invocación de una función. Fissionpermite el uso de triggers basados en peticiones HTTP, lanzados mediante timer,basados en colas de mensajes (como Kafka, NATS, etc.), así como basados en even-tos de Kubernetes Watch.
 
 - **Multi-tenancy:**
 
+  Fission soporta multi tenancy, diferentes usuarios, namespaces y roles. Más info [aquí](https://github.com/fission/fission/blob/master/Documentation/wip/Multi-tenancy.mdc)
+
 - **Platform Security:**
 
+  [xdd](https://github.com/fission/fission/issues/1611). Issue abierto desde nov 2018.
+
 - **Isolation:**
+
+  Pods are not discarded after execution. They are reused as needed, one single pod accepting multiple requests.
 
 ## **Kubeless**
 
