@@ -183,6 +183,8 @@ Those questions will be:
 
 - **Triggers:**
 
+  Kubeless soporta diferentes tipos de [Triggers](https://kubeless.io/docs/triggers/) Principalmente HTTP, cronjobs y PubSub.
+
 - **Multi-tenancy:**
 
 - **Platform Security:**
