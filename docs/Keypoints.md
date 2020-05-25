@@ -173,13 +173,23 @@ Those questions will be:
 
 - **Supported runtimes:**
 
+  Kubeless ofrece un amplio conjunto de [runtimes listos para ser usados](https://kubeless.io/docs/runtimes/). Por otro lado, ofrece una [guía](https://github.com/kubeless/runtimes/blob/master/DEVELOPER_GUIDE.md#runtime-image-requirements) sobre como crear runtimes propios. Estos runtimes deben seguir una serie de especificaciones, como levantar un servidor que reciba las llamadas o contestar ciertas rutas con ciertos resultados. Lo más curioso es que Kubeless los añade a su set de runtimes en caso de que sean correctos. No sé si se pueden utilizar por ellos mismos, pero parece bastante hacky en caso de ser así.
+
 - **Code and dependences:**
+
+  Both the code and dependeces are loaded dynamically, through the designated API.
 
 - **Function requisites:**
 
+  [Aquí](https://kubeless.io/docs/advanced-function-deployment/) se puede ver la especificación de la función. Acepta muchos campos y requisitos, pero es esecial pasarle un handler, así como sus dependencias y un evento, en el que se registrarán los argumentos de la llamada.
+
 - **Deployment Method:**
 
+  Kubernetes.
+
 - **Autoscaling Policies:**
+
+  Kubeless utiliza el HPA de kubernetes para las funciones de autoescalado. [Aquí](https://kubeless.io/docs/autoscaling/) se puede observar su funcionamiento. Se permite el escalado a zero.
 
 - **Triggers:**
 
@@ -187,6 +197,12 @@ Those questions will be:
 
 - **Multi-tenancy:**
 
+  It's possible. It's achieved with different intances of Kubeless deployed in several namespaces. See more [here](https://kubeless.io/docs/function-controller-configuration/)
+
 - **Platform Security:**
 
+  Control over the function deployment or invocation can be granted through the K8s mechanism, an OAuth token can be used. See [this](https://kubeless.io/docs/function-controller-configuration/). 
+
 - **Isolation:**
+
+  Por lo que veo las funciones permiten multiples llamadas. La creacion y borrado de funciones se supeditan al autoscaler.
