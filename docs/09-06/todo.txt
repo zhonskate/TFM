@@ -1,0 +1,21 @@
+TASKS (due 15/6)
+
+- Leer y Resumir el TFM del imperial. <-
+
+- Hacer tabla comparativa de las opciones open source.
+    - cuantos recursos necesita un contenedor?
+    - Reusables entre distintas ejecuciones de una misma función?
+    - Reusables entre distintas funciones de un mismo runtime?
+    - Reusables entre distintas funciones de un mismo runtime para un único usuario?
+    - Reusables entre distintas funciones de un mismo runtime para distintos usuarios?
+    - De qué forma se carga el código de las funciones, es decir, cómo se lleva hasta el worker.
+    - Qué obligaciones debe cumplir el código.
+    - Explicar la precarga de código, si hacen y cómo es esta. Algoritmo de cold start.
+
+- Comenzar a redactar la intro del trabajo.
+
+- Hacer una propuesta de un FaaS válido, centrado en el aislamiento entre ejecuciones.
+
+- Preparar una presentación para mostrar al tutor.
+
+

@@ -43,4 +43,42 @@ Always keep warm containers for every runtime -> **Fission** (POOL).
 
 Change the scheduler to just redirect function requests to invokers with that runtime.
 
+## **-------------------------------------------------------------**
 
+## Resumen por capítulos
+
+### Abstract
+
+Reestablecer los contenedores basándose directamente en los procesos de linux subyacentes para reducir los cold starts, con la finalidad de aumentar el aislamiento temporal.
+
+### Intro
+
+Se comenta muy brevemente:
+
+* FaaS y su situación histórica.
+
+* Qué son los cold starts y por qué son un motivo a mejorar.
+
+* El método de check and restore aplicado a procesos. Tiene sentido utilizarlo? Puede ser un buen approach.
+
+### Background
+
+
+
+### Refunction
+
+### The Worker: Restoring Live Processes
+
+### Isolation
+
+### Checkpoint
+
+### Library Loading
+
+### The invoker
+
+### Methodology
+
+### Evaluation
+
+### Conclusion
