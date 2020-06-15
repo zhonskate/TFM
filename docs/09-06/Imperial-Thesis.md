@@ -158,12 +158,81 @@ Capa encima de containerd. Toma el control del contenedor y hace el restore. Es 
 
 ### Checkpoint
 
+Para reestablecer el contenedor hay que reestablecer los siguientes elementos: 
+
+* Registros: ptrace permite la lectura y sobreescritura de registros.
+
+* Memoria: copiar todas las zonas de memoria "escribible" en tiempo de runtime. El resto no van a ser alteradas. El kernel de CRIU marca con un soft dirty bit las páginas de memoria alteradas, y éstas son las que se regeneran.
+
+  * Cambios en el tamaño de la memoria: se pide más memoria con malloc() una vez finalizado, el break del programa no se encuentra en el mismo sitio. Dos opciones:
+  
+    * Dejar el break donde está y borrar la memoria. Solución sucia, pues cada vez los contenedores alojan más memoria de la que necesitan.
+
+    * Devolver el break a su punto inicial. Código que se ejecutaría por el propio contenedor en la rutina de restore. El approach de CRIU es un parásito, código posicionalmente independiente, que se ejecuta fuera del stack normal de procesos y se autoelimina cuando acaba de correr.
+
+      _CRIU’s approach to running code in the tracees execution context is to inject a parasite [35]. A parasite is a blob of position independent code that can execute outside of the processes normal stack, and remove itself when it has completed running, leaving the container in the same state as it was before injection (minus changes caused by the parasite code itself). Parasites are powerful, but complex, they have to be compiled into assembly instructions for a particular machine, and must communicate with our tracer over a socket to receive command parameters. The way parasite blobs are inserted into the user’s address space may offer us a way to avoid complete parasite injection. The parasite must be placed somewhere, like an area of memory created by an mmap syscall. This syscall must also be run from the processes execution context. In order to do this compel, CRIU’s parasite injection library, finds the first executable area of memory, and changes the instruction to be a syscall instruction using PTRACE_PEEK/POKEDATA. After properly setting the registers for the relevant syscall (in this case mmap), the process is allowed to run the syscall, then stopped on its return. The instruction and registers can now be replaced to what it was, returning the process back to its original state. This method of syscall injection is enough to let us run arbitrary syscalls inside the processes execution context._
+  
+      Al proceder de esta manera la memoria queda liberada y es utilizable de nuevo.
+
+    * Nuevas areas de memoria: reparsear `/proc/pid/maps` y usar `munmap`.
+
+    * Areas de memoria borradas: Se interpretan como comportamiento malicioso. Parada por completo del contenedor y cold start.
+  
+  * Sistema de archivos: se detectan nuevos archivos mediante la lectura de `/proc/maps`. Se elimina todo lo que hay en tmp montandoun nuevo directorio encima del existente.
+
+  * Otros tipos de estado: se cierran todos los sockets de red y se limpian las señales del sistema en cola.
+
 ### Library Loading
+
+Cargado de dependencias en tiempo de ejecución. Paso de librerías por stdin como bytes en raw. Fácil de ejecutar para lenguajes interpretados, en java se utiliza el ClassLoader.
+
+* Hacia el cargado de librerías en tiempo cero. Elegir entre: 
+  
+  * cargado de dependencias antes de ejecución -> pool común de dependencias para todas las funciones de un runtime. Problemas de compatibilidad, no es posible tener dependencias custom.
+
+  * Cargado de dependencias en tiempo de ejecución. Más lento.
+
+  * Cargado incremental. Se presuponen unas dependencias populares. En el caso de no ser adecuadas para la función se hace un rollback volviendo al checkpoint original sin dependencias y se cargan. Este approach no se ha contemplado en el proyecto.
 
 ### The invoker
 
+El invoker es la pieza de openWhisk que se encarga de la gestión de contenedores. Es la pieza que sustituye este proyecto. El nuevo invoker sustituye la eliminación de contenedores por el reeestablecimiento. 
+
 ### Methodology
+
+Se ha desarrollado en go y haciendo uso de runc, containerd, etc.
+
+* Testing: Tests de correccion y unitarios.
 
 ### Evaluation
 
+Demostrar el restoring seguro y la mejora de rendimiento.
+
+* Experimental setup: componentes utilizados, tamaño de clusters, etc.
+
+* cold starts: 
+
+  * Low throughput:
+
+    Se cambia el keep warm time a 20 segundos. Funciones sin dependencias. Resultados excelentes.
+  
+  * Concurrent requests: escalar de 0 a 24. Resultados excelentes.
+
+  * Mejoras de throughput: saturacion en diversidad de funciones. Resultados excelentes.
+
+  * Tiempos de reestablecimiento:
+    
+    * Tipo de runtime: varía mucho. 
+
+    * Librerias: tiempo de carga dependiente del tamaño.
+
+    * Uso de memoria: Tiempo de reestablecimiento constante, independiente de la memoria
+
+  * Overhead de memoria en el reestablecimiento: hay runtimes que ocupan más en memoria por su tamaño. tradeoff con tiempo de procesamiento
+
+  * Overhead de ptrace: despreciable.
+      
+
 ### Conclusion
+
+recap y trabajos futuros. 
