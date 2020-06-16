@@ -69,6 +69,12 @@ Es interesante separar este tiempo en dos secciones:
   El caso más común es que esta unidad sea un contenedor.
   En este caso, no tener la unidad desplegada en el momento de que se produzac la llamada supone levantar el contenedor, lo que cuesta un tiempo del orden de magnitud de un segundo `(cita requerida)`, es lo que se llama un cold start.
 
+  * __Carga del runtime:__
+
+  * __Carga de dependencias:__
+
+  * __Carga del código:__
+
 * __Ejecución del código__, que comprende desde que termina el tiempo de carga hasta que finaliza la ejecución del código.
 Este tiempo va a ser estático, solamente va a depender del tamaño de la función y del poder de cómputo de la infraestructura subyacente.
 Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condiciones deberían tener tiempos de ejecución muy parejos. <!-- en un faas que funcione con contenedores como unidad de ejecución no va a ser siempre asi, pues el kernel es compartido y el schedule puede tener otras faenas en un momento dado. Vamos, que las condiciones no son iguales-->
