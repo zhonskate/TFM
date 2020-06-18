@@ -90,7 +90,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
 
 ## Comparativa
 
-* cuantos recursos se asignan un contenedor?
+* __cuantos recursos se asignan un contenedor?__
 
   * OpenFaaS: __Depende__ de la infraestructura sobnre la que corra.
   Es posible modificar estos límites en el [yaml de configuración](https://docs.openfaas.com/reference/yaml/#function-memorycpu-limits).
@@ -102,79 +102,123 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
 
   * kubeless:
 
-* Reusables entre distintas ejecuciones de una misma función?
+* __Reusables entre distintas ejecuciones de una misma función?__
 
   * OpenFaaS: __Sí__.
   [Watchdog](https://github.com/openfaas/faas/tree/master/watchdog) hace el enrutado de las invocaciones a un contenedor activo.
 
-  * OpenWhisk: __Sí__.
+  * OpenWhisk: __Sí__. Warm containers.
 
   * Fission:
 
   * kubeless:
 
-* Reusables entre distintas funciones de un mismo runtime?
+* __Reusables entre distintas funciones de un mismo runtime?__
 
   * OpenFaaS: __No__.
   El código se sube haciendo un build y un push de la imagen de docker.
   Cada función es una imagen, por lo que al final se pueden pormenorizar y gestionar individualmente. Una vez está creada ya funcionará por su cuenta.
 
-  * OpenWhisk: _No debería_
+  * OpenWhisk: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. 
 
   * Fission:
 
   * kubeless:
 
-* Reusables entre distintas funciones de un mismo runtime para un único usuario?
+* __Reusables entre distintas funciones de un mismo runtime para un único usuario?__
 
   * OpenFaaS: __No__.
   El código se sube haciendo un build y un push de la imagen de docker.
   Cada función es una imagen, por lo que al final se pueden pormenorizar y gestionar individualmente. Una vez está creada ya funcionará por su cuenta.
 
-  * OpenWhisk: _No debería_
+  * OpenWhisk: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. 
 
   * Fission:
 
   * kubeless:
 
-* Reusables entre distintas funciones de un mismo runtime para distintos usuarios?
+* __Reusables entre distintas funciones de un mismo runtime para distintos usuarios?__
 
   * OpenFaaS: __No__.
   El código se sube haciendo un build y un push de la imagen de docker.
   Cada función es una imagen, por lo que al final se pueden pormenorizar y gestionar individualmente. Una vez está creada ya funcionará por su cuenta.
 
-  * OpenWhisk: _No debería_
+  * OpenWhisk: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. Además, usuarios diferentes funcionan en namespaces de kubernetes diferentes, por lo que nunca van a poder compartir recursos.
 
   * Fission:
 
   * kubeless:
 
-* De qué forma se carga el código de las funciones, es decir, cómo se lleva hasta el worker.
+* __De qué forma se carga el código de las funciones, es decir, cómo se lleva hasta el worker.__
 
   * OpenFaaS: Se realiza un build de una imagen de docker.
   La imagen se descarga de un registry y se corre, a no ser que haya una imagen corriendo para esa función y namespace (autoscaler).
   Es decir solo cuando se escala de 0 a 1 contenedores.
 
-  * OpenWhisk: leer a stenbom
+  * OpenWhisk: El código se almacena en CouchDB cuando la función se registra y se lleva al contendor cuando es invocado.
 
   * Fission:
 
   * kubeless:
 
-* Coste temporal según nuestro modelo.
+* __Coste temporal según nuestro modelo.__
 
-  * OpenFaaS:
+  * __OpenFaaS__:
     
-    * Cold start: aprovisionamiento -> underlying (kubernetes, docker swarm).
-    Carga de runtimes, dependencias y código -> docker create.
+    * __Cold start__: 
+    
+      * Aprovisionamiento -> underlying (kubernetes, docker swarm).
+    
+      * Carga de runtimes, dependencias y código -> docker create.
+    
+      * Ejecución -> ejecución.
 
-  * OpenWhisk: leer a stenbom
+    * __Warm start__: 
+    
+      * Carga del código -> 0.
+    
+      * Ejecución -> ejecución.
+
+  * OpenWhisk: 
+  
+    * __Cold start__: 
+    
+      * Aprovisionamiento -> los recursos de contenedores están preasignados. ¿0?
+
+      * Carga de runtime -> Docker create.
+      
+      * Carga de dependencias -> Llevar desde CouchDB y ejecutar (si no están metidas en el runtime).
+
+      * Carga de código -> Llevar desde CouchDB y ejecutar.
+
+      * Ejecución -> ejecución.
+
+    * __Prewarm start__:
+    
+      * Aprovisionamiento -> 0
+
+      * Carga de runtime -> 0
+      
+      * Carga de dependencias -> Llevar desde CouchDB y ejecutar (si no están metidas en el runtime).
+      
+      * Carga de código -> Llevar desde CouchDB y ejecutar.
+      
+      * Ejecución -> ejecución.
+
+    * __Warm start__:
+
+      * Carga del código -> 0.
+    
+      * Ejecución -> ejecución.
 
   * Fission:
 
   * kubeless:
 
-* Qué obligaciones debe cumplir el código.
+* __Qué obligaciones debe cumplir el código.__
 
   * OpenFaaS: Las peticiones a la función deberán tener encuenta su entrada y salida.
   Watchdog levanta un servidor HTTP, por lo que todas las funciones van a porder ser accedidas mediante una API, que forwardeará el gateway.
@@ -198,19 +242,19 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   
     * El tiempo máximo de ejecución e inicialización puede ser configurado. Si se supera se   devuelve un error.
 
-
   * Fission:
 
   * kubeless:
 
-* Explicar la precarga de código, si hacen y cómo es esta. Algoritmo de cold start.
+* __Explicar la precarga de código, si hacen y cómo es esta. Algoritmo de cold start.__
 
   * OpenFaaS: Depende del autoscaler.
   En caso de no querer cold starts se puede configurar que una función no escale hasta cero.
   El autoescalado siempre va a crear contenedores nuevos haciendo un docker run, y luego el load balancer reparte la carga entre las instancias.
   No hay oráculo.
 
-  * OpenWhisk: oraculillo.
+  * OpenWhisk: Se pueden tener contenedores precalentados, con el runtime ya cargado esperando a recibir el cósigo, este prewarming no he conseguido averiguar como funciona. El scheduler funciona mediante un hasheo de los invocadores, por lo que intenta mandar las mismas requests a los mismos sitios, favoreciendo el reusado de contenedores al máximo.
+  Si se llama a una función no activa o cuyo runtime no esté prewarm cold start.
 
   * Fission:
 
