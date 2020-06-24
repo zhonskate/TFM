@@ -141,7 +141,7 @@ Those questions will be:
 
 - **Function requisites:**
 
-  El código o el código y las dependencias, según el caso. Las finciones están ligadas a un entorno en concreto, y se asocian a un path de la plataforma, convirtiendo esto en su entrypoint. En caso de subirse comprimidas, los archivos tiene  que seguir cierta estructura, vista [aquí](https://docs.fission.io/docs/usage/package/). 
+  El código o el código y las dependencias, según el caso. Las funciones están ligadas a un entorno en concreto, y se asocian a un path de la plataforma, convirtiendo esto en su entrypoint. En caso de subirse comprimidas, los archivos tiene  que seguir cierta estructura, vista [aquí](https://docs.fission.io/docs/usage/package/). 
 
 - **Deployment Method:**
 

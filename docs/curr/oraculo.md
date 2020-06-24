@@ -92,13 +92,13 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
 
 * __cuantos recursos se asignan un contenedor?__
 
-  * OpenFaaS: __Depende__ de la infraestructura sobnre la que corra.
+  * OpenFaaS: __Depende__ de la infraestructura sobre la que corra.
   Es posible modificar estos límites en el [yaml de configuración](https://docs.openfaas.com/reference/yaml/#function-memorycpu-limits).
 
   * OpenWhisk: __Depende__ de la configuración del invoker.
   Se establece un tamaño global, es decir, todas las funciones utilizan la misma cantidad de recursos.
 
-  * Fission:
+  * Fission: __Depende__ de el environment (runtime) seleccionado. Se puede configurar la cantidad de recursos que va a necesitar un environment y el scheduler actúa consecuentemente.
 
   * kubeless:
 
@@ -109,9 +109,9 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
 
   * OpenWhisk: __Sí__. Warm containers.
 
-  * Fission:
+  * Fission: __Sí__. Warm containers.
 
-  * kubeless:
+  * kubeless: __Sí__. Warm containers.
 
 * __Reusables entre distintas funciones de un mismo runtime?__
 
@@ -120,9 +120,10 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   Cada función es una imagen, por lo que al final se pueden pormenorizar y gestionar individualmente. Una vez está creada ya funcionará por su cuenta.
 
   * OpenWhisk: __No__.
-  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. 
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold.
 
-  * Fission:
+  * Fission: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold.
 
   * kubeless:
 
@@ -135,7 +136,8 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   * OpenWhisk: __No__.
   Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. 
 
-  * Fission:
+  * Fission: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold.
 
   * kubeless:
 
@@ -148,7 +150,8 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   * OpenWhisk: __No__.
   Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. Además, usuarios diferentes funcionan en namespaces de kubernetes diferentes, por lo que nunca van a poder compartir recursos.
 
-  * Fission:
+  * Fission: __No__.
+  Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. Además, usuarios diferentes funcionan en namespaces de kubernetes diferentes, por lo que nunca van a poder compartir recursos.
 
   * kubeless:
 
@@ -160,7 +163,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
 
   * OpenWhisk: El código se almacena en CouchDB cuando la función se registra y se lleva al contendor cuando es invocado.
 
-  * Fission:
+  * Fission: El código se almacena en _custom resource definitions_ de Kubernetes. Cuando se llama a la función, el executor lo recupera y crea las estructuras necesarias para su ejecución.
 
   * kubeless:
 
@@ -182,7 +185,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
     
       * Ejecución -> ejecución.
 
-  * OpenWhisk: 
+  * __OpenWhisk__: 
   
     * __Cold start__: 
     
@@ -214,7 +217,45 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
     
       * Ejecución -> ejecución.
 
-  * Fission:
+  * __Fission PoolManager__: 
+
+    * __Prewarm start__:
+    
+      * Aprovisionamiento -> 0. Se supone que cuando das de alta una función ya prewarmea su environment
+
+      * Carga de runtime -> 0. prewarm.
+      
+      * Carga de dependencias -> Bien van en el environment o se lo que se tarde en bajar del CRD y ejecutarse.
+      
+      * Carga de código -> Llevar desde CRD y ejecutar.
+      
+      * Ejecución -> ejecución.
+
+    * __Warm start__:
+
+      * Carga del código -> 0.
+    
+      * Ejecución -> ejecución.
+
+  * __Fission NewDeployment__: 
+
+    * __cold start__:
+
+      * Aprovisionamiento -> los recursos de contenedores están preasignados. ¿0?
+
+      * Carga de runtime -> Docker create.
+      
+      * Carga de dependencias -> Llevar desde CRD y ejecutar (si no están metidas en el runtime).
+
+      * Carga de código -> Llevar desde CRD y ejecutar.
+
+      * Ejecución -> ejecución.
+
+    * __Warm start__:
+
+      * Carga del código -> 0.
+    
+      * Ejecución -> ejecución.
 
   * kubeless:
 
@@ -242,7 +283,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   
     * El tiempo máximo de ejecución e inicialización puede ser configurado. Si se supera se   devuelve un error.
 
-  * Fission:
+  * Fission: El código o el código y las dependencias, según el caso. Las funciones están ligadas a un entorno en concreto, y se asocian a un path de la plataforma, convirtiendo esto en su entrypoint. En caso de subirse comprimidas, los archivos tiene  que seguir cierta estructura, vista [aquí](https://docs.fission.io/docs/usage/package/). 
 
   * kubeless:
 
@@ -253,9 +294,9 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   El autoescalado siempre va a crear contenedores nuevos haciendo un docker run, y luego el load balancer reparte la carga entre las instancias.
   No hay oráculo.
 
-  * OpenWhisk: Se pueden tener contenedores precalentados, con el runtime ya cargado esperando a recibir el cósigo, este prewarming no he conseguido averiguar como funciona. El scheduler funciona mediante un hasheo de los invocadores, por lo que intenta mandar las mismas requests a los mismos sitios, favoreciendo el reusado de contenedores al máximo.
+  * OpenWhisk: Se pueden tener contenedores precalentados, con el runtime ya cargado esperando a recibir el código, este prewarming no he conseguido averiguar como funciona. El scheduler funciona mediante un hasheo de los invocadores, por lo que intenta mandar las mismas requests a los mismos sitios, favoreciendo el reusado de contenedores al máximo.
   Si se llama a una función no activa o cuyo runtime no esté prewarm cold start.
 
-  * Fission:
+  * Fission: Solo el executor poolmanager es capaz de tener funciones precargadas. Cuando una función se da de alta se crea un contendor con su environment y se mantiene precalentado. Se puede variar la pool de contenedores precalentados, por lo que se puede tener más de uno por environment.
 
   * kubeless:
