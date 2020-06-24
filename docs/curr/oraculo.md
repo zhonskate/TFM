@@ -125,7 +125,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   * Fission: __No__.
   Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold.
 
-  * kubeless:
+  * kubeless: No
 
 * __Reusables entre distintas funciones de un mismo runtime para un único usuario?__
 
@@ -139,7 +139,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   * Fission: __No__.
   Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold.
 
-  * kubeless:
+  * kubeless: No
 
 * __Reusables entre distintas funciones de un mismo runtime para distintos usuarios?__
 
@@ -153,7 +153,7 @@ Dos ejecuciones de la misma función en el mismo sistema bajo las mismas condici
   * Fission: __No__.
   Una llamada a una función bien acaba en un contenedor con la función activa o busca un contenedor nuevo, bien prewarmed o cold. Además, usuarios diferentes funcionan en namespaces de kubernetes diferentes, por lo que nunca van a poder compartir recursos.
 
-  * kubeless:
+  * kubeless: No
 
 * __De qué forma se carga el código de las funciones, es decir, cómo se lleva hasta el worker.__
 
