@@ -10,4 +10,4 @@
 
 * Openwhisk utilizando el invoker del imperial? Cambiar politicas de cold starts.
 
-* Justificar el aislamiento.
+* Justificar el aislamiento. Ratio de reutilizacion de contenedores - 0. Aplicar t'ecnicas para que el reinicio sea lo maas rapido posible.
