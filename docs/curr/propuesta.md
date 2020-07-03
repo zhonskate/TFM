@@ -10,4 +10,8 @@
 
 * Openwhisk utilizando el invoker del imperial? Cambiar politicas de cold starts.
 
-* Justificar el aislamiento. Ratio de reutilizacion de contenedores - 0. Aplicar t'ecnicas para que el reinicio sea lo maas rapido posible.
+* Justificar el aislamiento. Ratio de reutilizacion de contenedores - 0. Aplicar técnicas para que el reinicio sea lo maas rapido posible.
+
+* Determinismo intrafuncional. Desde un punto de vista externo, todas las ejecuciones de una función con los mismos parámetros devuelven el mismo resultado.
+
+* Compartición de funciones. La ejecución de una función por parte de un usuario siempre es privada sin tener que hacer uso de mecanismos multi-tenancy como namespaces.
