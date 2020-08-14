@@ -1,2 +1,4 @@
 private/
 node_modules/
+*.log
+**/logs

@@ -10,7 +10,8 @@ const myformat = logger.format.combine(
 );
 
 const files = new logger.transports.File({
-    filename: 'combined.log'
+    format: myformat,
+    filename: 'logs/combined.log'
 });
 const console = new logger.transports.Console({
     format: myformat
