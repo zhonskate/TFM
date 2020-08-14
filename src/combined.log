@@ -1,0 +1,128 @@
+{"username":"xyz","password":"xyz","level":"debug"}
+{"level":"debug"}
+{"username":"xyz","password":"xyz","level":"debug"}
+{"level":"debug"}
+{"username":"xyz","password":"xyz","level":"debug"}
+{"level":"debug"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"username":"xyz","password":"xyz","level":"debug"}
+{"level":"debug"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"image":"xyz","level":"debug"}
+{"level":"debug","message":"xyz"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"xyz\"}"}
+{"level":"debug","message":"xyz"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"xyz\"}"}
+{"level":"debug","message":"xyz"}
+{"level":"error","message":"Error response from daemon: No such image: xyz:latest\n"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"error","message":"Get http://localhost:5000/v2/: dial tcp [::1]:5000: connect: connection refused\n"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"debug","message":"    docker     tag     python-runtime localhost:5000/python-runtime"}
+{"level":"debug","message":"        docker         push         localhost:5000/python-runtime"}
+{"level":"error","message":"Get http://localhost:5000/v2/: dial tcp [::1]:5000: connect: connection refused\n"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"debug","message":"    docker     tag     python-runtime localhost:5000/python-runtime"}
+{"level":"debug","message":"        docker         push         localhost:5000/python-runtime"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"debug","message":"    docker     tag     python-runtime localhost:5000/python-runtime"}
+{"level":"debug","message":"        docker         push         localhost:5000/python-runtime"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"debug","message":"    docker     tag     python-runtime localhost:5000/python-runtime"}
+{"level":"debug","message":"        docker         push         localhost:5000/python-runtime"}
+{"level":"debug","message":"5: debug"}
+{"level":"verbose","message":"4: verbose"}
+{"level":"http","message":"3: http"}
+{"level":"info","message":"2: info"}
+{"level":"warn","message":"1: warn"}
+{"level":"error","message":"0: error"}
+{"level":"info","message":"FaaS listening at http://localhost:3000"}
+{"level":"debug","message":"{\"image\":\"python-runtime\"}"}
+{"level":"debug","message":"python-runtime"}
+{"level":"debug","message":"    docker     tag     python-runtime localhost:5000/python-runtime"}
+{"level":"debug","message":"        docker         push         localhost:5000/python-runtime"}
+{"message":"image python-runtime uploaded to registry","level":"info"}
