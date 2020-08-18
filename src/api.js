@@ -7,6 +7,7 @@ var multer = require('multer');
 var cors = require('cors');
 var Loki = require('lokijs');
 var del = require('del');
+const { execSync } = require('child_process');
 
 // LOGGER-RELATED DECLARATIONS
 
@@ -82,6 +83,8 @@ app.get('/test', (req, res) => res.send('Hello World!'))
 
 app.post('/registerRuntime', function (req, res) {
 
+    //TODO: Asignar una ruta para la descompresión de archivos de función.
+
     // {image:<imageName>}
 
     logger.log('debug', JSON.stringify(req.body));
@@ -136,16 +139,69 @@ app.post('/registerRuntime', function (req, res) {
 
 app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
 
+    var exec = require('child_process').exec;
+
     // receive from http
     try {
-        // add to database /uploads
         logger.debug(JSON.stringify(req.file))
         const col = await loadCollection(COLLECTION_NAME, db);
+        
+        //check if function is registered.
+        //TODO: Accept versions of the same function, maybe other API route
+        var already = col.where(function(obj){ return obj.originalname == req.file.originalname});
+        logger.debug(already.length);
+        if (already.length > 0){
+            logger.debug(`already ${JSON.stringify(already)}`);
+            logger.warn(`Function name already registered`);
+
+            //remove the incoming file.
+            var commandline = `rm uploads/${req.file.filename}`;
+            execSync(commandline, function (error, stdout, stderr) {
+                if (stderr) {
+                    logger.log('error', stderr);
+                }   
+                if (error !== null) {
+                    logger.log('error', error);
+                    res.send(error);
+                    return next(new Error([error]));
+                }   
+            });
+            res.sendStatus(400);
+            return;
+        }
+
         const data = col.insert(req.file);
         db.saveDatabase();
 
-        // TODO: Create a new folder for each function and uncompress it to bind it later.
-        // TODO: add the function name to the DB. Assign it to a Runtime. 
+        var folderName = req.file.originalname.split('.')[0];
+        logger.debug(`filename ${folderName}`)
+
+        // Create a folder to hold the function contents
+        var commandline = `mkdir -p uploads/${folderName}`
+        execSync(commandline, function (error, stdout, stderr) {
+            if (stderr) {
+                logger.log('error', stderr);
+            }
+            if (error !== null) {
+                logger.log('error', error);
+                res.send(error);
+                return next(new Error([error]));
+            }
+        });
+
+        // extract the file on the newly created folder
+        var commandline = `tar -C uploads/${folderName} -zxf uploads/${req.file.filename}`
+        execSync(commandline, function (error, stdout, stderr) {
+            if (stderr) {
+                logger.log('error', stderr);
+            }
+            if (error !== null) {
+                logger.log('error', error);
+                res.send(error);
+                return next(new Error([error]));
+            }
+        });
+
 
         // create the sha of the tgz
         // var tarfile = fs.readFileSync(req.file.path, 'utf8');
@@ -158,6 +214,9 @@ app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
             if(stderr){console.log(stderr);}
             if(stdout){console.log(stdout);}
         }) */
+
+        res.sendStatus(200);
+        return;
     } 
     catch (err) {
         logger.error(err);
