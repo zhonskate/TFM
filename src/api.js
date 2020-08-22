@@ -7,7 +7,9 @@ var multer = require('multer');
 var cors = require('cors');
 var Loki = require('lokijs');
 var del = require('del');
-const { execSync } = require('child_process');
+const {
+    execSync
+} = require('child_process');
 
 // LOGGER-RELATED DECLARATIONS
 
@@ -44,8 +46,12 @@ logger.log('error', '0: error'); */
 const DB_NAME = 'db.json';
 const COLLECTION_NAME = 'functions';
 const UPLOAD_PATH = 'uploads';
-const upload = multer({ dest: `${UPLOAD_PATH}/` }); // multer configuration
-const db = new Loki(`${UPLOAD_PATH}/${DB_NAME}`, { persistenceMethod: 'fs' });
+const upload = multer({
+    dest: `${UPLOAD_PATH}/`
+}); // multer configuration
+const db = new Loki(`${UPLOAD_PATH}/${DB_NAME}`, {
+    persistenceMethod: 'fs'
+});
 
 // EXPRESS CONF
 
@@ -62,7 +68,7 @@ var registryPort = '5000';
 //----------------------------------------------------------------------------------//
 // Upload-related code
 
-const loadCollection = function (colName, db){
+const loadCollection = function (colName, db) {
     return new Promise(resolve => {
         db.loadDatabase({}, () => {
             const _collection = db.getCollection(colName) || db.addCollection(colName);
@@ -80,6 +86,16 @@ cleanFolder(UPLOAD_PATH);
 
 
 app.get('/test', (req, res) => res.send('Hello World!'))
+
+//TODO: esto 
+
+app.get('/functions', function (req, res) {
+
+});
+
+app.get('/runtimes', function (req, res) {
+
+});
 
 app.post('/registerRuntime', function (req, res) {
 
@@ -137,20 +153,27 @@ app.post('/registerRuntime', function (req, res) {
     });
 })
 
-app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
+app.post('/registerFunction/:functionName', upload.single('module'), async (req, res, next) => {
+
+    logger.info(`REGISTER FUNCTION ${req.params.functionName}`);
+
+    // TODO: use function names
 
     var exec = require('child_process').exec;
 
     // receive from http
     try {
+        req.file.functionName = req.params.functionName;
         logger.debug(JSON.stringify(req.file))
         const col = await loadCollection(COLLECTION_NAME, db);
-        
+
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
-        var already = col.where(function(obj){ return obj.originalname == req.file.originalname});
+        var already = col.where(function (obj) {
+            return obj.functionName == req.file.functionName
+        });
         logger.debug(already.length);
-        if (already.length > 0){
+        if (already.length > 0) {
             logger.debug(`already ${JSON.stringify(already)}`);
             logger.warn(`Function name already registered`);
 
@@ -159,12 +182,12 @@ app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
             execSync(commandline, function (error, stdout, stderr) {
                 if (stderr) {
                     logger.log('error', stderr);
-                }   
+                }
                 if (error !== null) {
                     logger.log('error', error);
                     res.send(error);
                     return next(new Error([error]));
-                }   
+                }
             });
             res.sendStatus(400);
             return;
@@ -173,8 +196,8 @@ app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
         const data = col.insert(req.file);
         db.saveDatabase();
 
-        var folderName = req.file.originalname.split('.')[0];
-        logger.debug(`filename ${folderName}`)
+        var folderName = req.file.functionName;
+        logger.debug(`function Name ${folderName}`)
 
         // Create a folder to hold the function contents
         var commandline = `mkdir -p uploads/${folderName}`
@@ -217,14 +240,22 @@ app.post('/registerFunction',upload.single('module'), async(req, res, next) =>{
 
         res.sendStatus(200);
         return;
-    } 
-    catch (err) {
+    } catch (err) {
         logger.error(err);
         res.sendStatus(400);
     }
 
 });
 
-app.post('/invokeFuction', (req, res) => res)
+app.post('/invokeFunction', function (req, res) {
+
+    var funcName = req.body.funcName;
+    var params = req.body.params;
+
+
+    logger.debug(`function name ${funcName}`);
+    logger.debug(`params ${JSON.stringify(params)}`);
+    res.sendStatus(200);
+});
 
 app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
