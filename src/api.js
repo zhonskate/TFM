@@ -65,6 +65,7 @@ app.use(bodyParser.json())
 const port = 3000
 var registryIP = 'localhost';
 var registryPort = '5000';
+var callNum = 0;
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -139,11 +140,19 @@ app.post('/registerRuntime', async function (req, res) {
 
     //TODO: Asignar una ruta para la descompresión de archivos de función.
 
-    // {image:<imageName>}
+    // {image:<imageName>, path: <path>}
 
     logger.log('debug', JSON.stringify(req.body));
     logger.log('debug', req.body.image);
+    logger.debug(req.body.path);
     img = req.body.image;
+    path = req.body.path;
+
+    if (img == undefined || path == undefined) {
+        logger.warn('USAGE image:<imageName>, path: <path>');
+        res.sendStatus(400);
+        return;
+    }
 
     var exec = require('child_process').exec;
 
@@ -206,24 +215,51 @@ app.post('/registerRuntime', async function (req, res) {
     });
 })
 
-app.post('/registerFunction/:functionName', upload.single('module'), async (req, res, next) => {
+app.post('/registerFunction/:runtimeName/:functionName', upload.single('module'), async (req, res, next) => {
 
-    logger.info(`REGISTER FUNCTION ${req.params.functionName}`);
+    logger.info(`REGISTER FUNCTION ${req.params.functionName} OF RUNTIME ${req.params.runtimeName}`);
 
-    // TODO: use function names
+    // TODO: assign function to runtime
 
     var exec = require('child_process').exec;
 
     // receive from http
     try {
         req.file.functionName = req.params.functionName;
+        req.file.runtimeName = req.params.runtimeName;
         logger.debug(JSON.stringify(req.file))
-        const col = await loadCollection(COLLECTION_FUNCTIONS, db);
+
+        //check if runtime exists
+        const runCol = await loadCollection(COLLECTION_RUNTIMES, db);
+        var exists = runCol.where(function (obj) {
+            return obj.image == req.file.runtimeName;
+        });
+        logger.debug(exists.length);
+        if (exists.length != 1) {
+            logger.warn(`Inexistent runtime`);
+
+            //remove the incoming file.
+            var commandline = `rm uploads/${req.file.filename}`;
+            execSync(commandline, function (error, stdout, stderr) {
+                if (stderr) {
+                    logger.log('error', stderr);
+                }
+                if (error !== null) {
+                    logger.log('error', error);
+                    res.send(error);
+                    return next(new Error([error]));
+                }
+            });
+            res.sendStatus(400);
+            return;
+        }
+
 
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
+        const col = await loadCollection(COLLECTION_FUNCTIONS, db);
         var already = col.where(function (obj) {
-            return obj.functionName == req.file.functionName
+            return obj.functionName == req.file.functionName;
         });
         logger.debug(already.length);
         if (already.length > 0) {
@@ -249,7 +285,7 @@ app.post('/registerFunction/:functionName', upload.single('module'), async (req,
         const data = col.insert(req.file);
         db.saveDatabase();
 
-        var folderName = req.file.functionName;
+        var folderName = req.file.runtimeName + '/' + req.file.functionName;
         logger.debug(`function Name ${folderName}`)
 
         // Create a folder to hold the function contents
@@ -300,14 +336,119 @@ app.post('/registerFunction/:functionName', upload.single('module'), async (req,
 
 });
 
-app.post('/invokeFunction', function (req, res) {
+app.post('/invokeFunction', async function (req, res) {
+
+    var exec = require('child_process').exec;
 
     var funcName = req.body.funcName;
     var params = req.body.params;
 
+    logger.info(`INVOKING ${funcName} WITH PARAMS ${JSON.stringify(params)}`);
 
-    logger.debug(`function name ${funcName}`);
-    logger.debug(`params ${JSON.stringify(params)}`);
+    // check arguments are present
+    if (funcName == undefined || params == undefined) {
+        logger.warn('INCORRECT ARGUMENTS')
+        res.sendStatus(400);
+    }
+
+    // check if function exists
+    const col = await loadCollection(COLLECTION_FUNCTIONS, db);
+    var funcQuery = col.where(function (obj) {
+        return obj.functionName == req.body.funcName;
+    });
+    logger.debug(funcQuery.length);
+    if (funcQuery.length != 1) {
+        logger.debug(`already ${JSON.stringify(funcQuery)}`);
+        logger.warn(`Function does not exist`);
+        res.sendStatus(400);
+        return;
+    }
+    logger.debug(`object func ${JSON.stringify(funcQuery)}`);
+    var runtime = funcQuery[0].runtimeName;
+    logger.debug(`runtime ${runtime}`);
+
+    // look for the runtime path
+    const runCol = await loadCollection(COLLECTION_RUNTIMES, db);
+    var runQuery = runCol.where(function (obj) {
+        return obj.image == runtime;
+    });
+
+    var containerPath = runQuery[0].path;
+    logger.debug(`object runtime ${JSON.stringify(runQuery)}`);
+    logger.debug(`container path ${containerPath}`);
+
+    // save the parameters to a file
+
+    // create the folder
+    var commandline = `mkdir -p calls/${callNum}`;
+    execSync(commandline, function (error, stdout, stderr) {
+        if (stderr) {
+            logger.log('error', stderr);
+        }
+        if (error !== null) {
+            logger.log('error', error);
+            res.send(error);
+            return next(new Error([error]));
+        }
+    });
+
+    // add an info file
+    fileObject = {
+        "runtime": runtime,
+        "function": funcName
+    };
+    var commandline = `echo '${JSON.stringify(fileObject)}' > calls/${callNum}/info.json`
+    execSync(commandline, function (error, stdout, stderr) {
+        if (stderr) {
+            logger.log('error', stderr);
+        }
+        if (error !== null) {
+            logger.log('error', error);
+            res.send(error);
+            return next(new Error([error]));
+        }
+    });
+
+    // create the params file
+    var commandline = `echo '${JSON.stringify(params)}' > calls/${callNum}/input.json`
+    execSync(commandline, function (error, stdout, stderr) {
+        if (stderr) {
+            logger.log('error', stderr);
+        }
+        if (error !== null) {
+            logger.log('error', error);
+            res.send(error);
+            return next(new Error([error]));
+        }
+    });
+
+    // launch the container volume-binding the uncompressed files
+
+    // TODO: parametrize the hostpath
+
+    var commandline = `docker run \
+        -d \
+        -v ${__dirname}/uploads/${runtime}/${funcName}:${containerPath} \
+        -v ${__dirname}/calls/${callNum}:/call \
+        ${registryIP}:${registryPort}/${runtime}`
+
+    logger.debug(commandline);
+
+    execSync(commandline, function (error, stdout, stderr) {
+        if (stderr) {
+            logger.log('error', stderr);
+        }
+        if (error !== null) {
+            logger.log('error', error);
+            res.send(error);
+            return next(new Error([error]));
+        }
+    });
+
+    // TODO: call the function on the runtime image. read the parameters and pass them to the func.
+
+    // pass the arguments to the running function
+
     res.sendStatus(200);
 });
 
