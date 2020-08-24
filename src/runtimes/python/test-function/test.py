@@ -1,3 +1,7 @@
 import dice
-roll = dice.roll('3d20')
+import sys
+
+reqs = sys.argv[1]
+
+roll = dice.roll(reqs.roll)
 print(roll)

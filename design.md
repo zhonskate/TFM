@@ -8,3 +8,6 @@
 
 * Funciones. Se guardan en la BBDD. Como guardarlas y como cargarlas. ZIP?
 
+## INVESTIGAR
+
+* Bindeo de volumen a un contenedor corriendo?
