@@ -44,7 +44,8 @@ logger.log('error', '0: error'); */
 // DB-RELATED DECLARATIONS
 
 const DB_NAME = 'db.json';
-const COLLECTION_NAME = 'functions';
+const COLLECTION_FUNCTIONS = 'functions';
+const COLLECTION_RUNTIMES = 'runtimes';
 const UPLOAD_PATH = 'uploads';
 const upload = multer({
     dest: `${UPLOAD_PATH}/`
@@ -89,15 +90,52 @@ app.get('/test', (req, res) => res.send('Hello World!'))
 
 //TODO: esto 
 
-app.get('/functions', function (req, res) {
+app.get('/functions', async function (req, res) {
+    logger.info(`GET FUNCTIONS`);
+
+    const col = await loadCollection(COLLECTION_FUNCTIONS, db);
+    var solArr = col.where(function (obj) {
+        return obj.functionName != '';
+    });
+
+    sol = [];
+
+    for (i = 0; i < solArr.length; i++) {
+        sol.push(solArr[i].functionName);
+    }
+
+    logger.debug(sol);
+
+    res.send(sol);
+
+    db.saveDatabase();
+});
+
+app.get('/runtimes', async function (req, res) {
+    logger.info(`GET RUNTIMES`);
+
+    const col = await loadCollection(COLLECTION_RUNTIMES, db);
+    var solArr = col.where(function (obj) {
+        return obj.image != '';
+    });
+
+    sol = [];
+
+    for (i = 0; i < solArr.length; i++) {
+        sol.push(solArr[i].image);
+    }
+
+    logger.debug(sol);
+
+    res.send(sol);
+
+    db.saveDatabase();
 
 });
 
-app.get('/runtimes', function (req, res) {
+app.post('/registerRuntime', async function (req, res) {
 
-});
-
-app.post('/registerRuntime', function (req, res) {
+    logger.info(`REGISTER RUNTIME ${req.body.image}`);
 
     //TODO: Asignar una ruta para la descompresión de archivos de función.
 
@@ -108,6 +146,21 @@ app.post('/registerRuntime', function (req, res) {
     img = req.body.image;
 
     var exec = require('child_process').exec;
+
+    const col = await loadCollection(COLLECTION_RUNTIMES, db);
+    var already = col.where(function (obj) {
+        return obj.image == req.body.image
+    });
+    logger.debug(already.length);
+    if (already.length > 0) {
+        logger.debug(`already ${JSON.stringify(already)}`);
+        logger.warn(`runtime already registered`);
+        res.sendStatus(400);
+        return;
+    }
+    const data = col.insert(req.body);
+    db.saveDatabase();
+
 
     // tag image
     var commandline = `\
@@ -165,7 +218,7 @@ app.post('/registerFunction/:functionName', upload.single('module'), async (req,
     try {
         req.file.functionName = req.params.functionName;
         logger.debug(JSON.stringify(req.file))
-        const col = await loadCollection(COLLECTION_NAME, db);
+        const col = await loadCollection(COLLECTION_FUNCTIONS, db);
 
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
