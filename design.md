@@ -11,3 +11,5 @@
 ## INVESTIGAR
 
 * Bindeo de volumen a un contenedor corriendo?
+  * use docker copy
+  

@@ -10,6 +10,8 @@ var del = require('del');
 const {
     execSync
 } = require('child_process');
+var utils = require('./utils');
+const { validName } = require('./utils');
 
 // LOGGER-RELATED DECLARATIONS
 
@@ -87,9 +89,7 @@ const cleanFolder = function (folderPath) {
 cleanFolder(UPLOAD_PATH);
 
 
-app.get('/test', (req, res) => res.send('Hello World!'))
-
-//TODO: esto 
+// GET FUNCTIONS
 
 app.get('/functions', async function (req, res) {
     logger.info(`GET FUNCTIONS`);
@@ -111,6 +111,9 @@ app.get('/functions', async function (req, res) {
 
     db.saveDatabase();
 });
+
+
+// GET RUNTIMES
 
 app.get('/runtimes', async function (req, res) {
     logger.info(`GET RUNTIMES`);
@@ -134,86 +137,80 @@ app.get('/runtimes', async function (req, res) {
 
 });
 
+
+// POST REGISTERRUNTIME
+
 app.post('/registerRuntime', async function (req, res) {
 
-    logger.info(`REGISTER RUNTIME ${req.body.image}`);
+    try {
 
-    //TODO: Asignar una ruta para la descompresión de archivos de función.
+        logger.info(`REGISTER RUNTIME ${req.body.image}`);
 
-    // {image:<imageName>, path: <path>}
+        //TODO: Asignar una ruta para la descompresión de archivos de función.
 
-    logger.log('debug', JSON.stringify(req.body));
-    logger.log('debug', req.body.image);
-    logger.debug(req.body.path);
-    img = req.body.image;
-    path = req.body.path;
+        // {image:<imageName>, path: <path>}
 
-    if (img == undefined || path == undefined) {
-        logger.warn('USAGE image:<imageName>, path: <path>');
-        res.sendStatus(400);
-        return;
-    }
-
-    var exec = require('child_process').exec;
-
-    const col = await loadCollection(COLLECTION_RUNTIMES, db);
-    var already = col.where(function (obj) {
-        return obj.image == req.body.image
-    });
-    logger.debug(already.length);
-    if (already.length > 0) {
-        logger.debug(`already ${JSON.stringify(already)}`);
-        logger.warn(`runtime already registered`);
-        res.sendStatus(400);
-        return;
-    }
-    const data = col.insert(req.body);
-    db.saveDatabase();
+        logger.log('debug', JSON.stringify(req.body));
+        logger.log('debug', req.body.image);
+        logger.debug(req.body.path);
+        img = req.body.image;
+        path = req.body.path;
 
 
-    // tag image
-    var commandline = `\
-    docker \
-    tag \
-    ${img} ${registryIP}:${registryPort}/${img}`
-    logger.log('debug', commandline);
-    exec(commandline, function (error, stdout, stderr) {
-
-        if (stderr) {
-            logger.log('error', stderr);
+        // check de parámetros
+        if (img == undefined || path == undefined) {
+            logger.warn('USAGE image:<imageName>, path: <path>');
+            res.sendStatus(400);
+            return;
         }
 
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
+        // check del runtime name
+        if(utils.validName(logger,img) == false) {
+            logger.warn('no special characters allowed on runtime name');
+            res.sendStatus(400);
+            return;
         }
+
+        const col = await loadCollection(COLLECTION_RUNTIMES, db);
+        var already = col.where(function (obj) {
+            return obj.image == req.body.image
+        });
+        logger.debug(already.length);
+        if (already.length > 0) {
+            logger.debug(`already ${JSON.stringify(already)}`);
+            logger.warn(`runtime already registered`);
+            res.sendStatus(400);
+            return;
+        }
+        const data = col.insert(req.body);
+        db.saveDatabase();
+
+
+        // tag image
+        var commandline = `\
+        docker \
+        tag \
+        ${img} ${registryIP}:${registryPort}/${img}`
+        utils.executeSync(logger, commandline);
 
         // push the image to the registry
         var commandline = `\
         docker \
         push \
         ${registryIP}:${registryPort}/${img}`
-        logger.log('debug', commandline);
-        exec(commandline, function (error, stdout, stderr) {
+        utils.executeSync(logger, commandline);
 
-            if (stderr) {
-                logger.log('error', stderr);
-            }
+        logger.info(`image ${img} uploaded to registry`);
+        // return the status
+        res.sendStatus(200);
+    } catch (err) {
+        logger.error(err);
+        res.sendStatus(400);
+    }
+});
 
-            if (error !== null) {
-                logger.log('error', error);
-                res.send(error);
-                return next(new Error([error]));
-            }
 
-            logger.info(`image ${img} uploaded to registry`);
-            // return the status
-            res.sendStatus(200);
-
-        });
-    });
-})
+// POST REGISTERFUNCTION
 
 app.post('/registerFunction/:runtimeName/:functionName', upload.single('module'), async (req, res, next) => {
 
@@ -221,13 +218,21 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
     // TODO: assign function to runtime
 
-    var exec = require('child_process').exec;
-
     // receive from http
     try {
         req.file.functionName = req.params.functionName;
         req.file.runtimeName = req.params.runtimeName;
         logger.debug(JSON.stringify(req.file))
+
+        if(!utils.validName(logger,functionName)) {
+            logger.warn('no special characters allowed on function name');
+
+            //remove the incoming file.
+            var commandline = `rm uploads/${req.file.filename}`;
+            utils.executeSync(logger, commandline);
+            res.sendStatus(400);
+            return;
+        }
 
         //check if runtime exists
         const runCol = await loadCollection(COLLECTION_RUNTIMES, db);
@@ -240,16 +245,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
             //remove the incoming file.
             var commandline = `rm uploads/${req.file.filename}`;
-            execSync(commandline, function (error, stdout, stderr) {
-                if (stderr) {
-                    logger.log('error', stderr);
-                }
-                if (error !== null) {
-                    logger.log('error', error);
-                    res.send(error);
-                    return next(new Error([error]));
-                }
-            });
+            utils.executeSync(logger, commandline);
             res.sendStatus(400);
             return;
         }
@@ -268,16 +264,8 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
             //remove the incoming file.
             var commandline = `rm uploads/${req.file.filename}`;
-            execSync(commandline, function (error, stdout, stderr) {
-                if (stderr) {
-                    logger.log('error', stderr);
-                }
-                if (error !== null) {
-                    logger.log('error', error);
-                    res.send(error);
-                    return next(new Error([error]));
-                }
-            });
+            utils.executeSync(logger, commandline);
+
             res.sendStatus(400);
             return;
         }
@@ -290,30 +278,11 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
         // Create a folder to hold the function contents
         var commandline = `mkdir -p uploads/${folderName}`
-        execSync(commandline, function (error, stdout, stderr) {
-            if (stderr) {
-                logger.log('error', stderr);
-            }
-            if (error !== null) {
-                logger.log('error', error);
-                res.send(error);
-                return next(new Error([error]));
-            }
-        });
+        utils.executeSync(logger, commandline);
 
         // extract the file on the newly created folder
         var commandline = `tar -C uploads/${folderName} -zxf uploads/${req.file.filename}`
-        execSync(commandline, function (error, stdout, stderr) {
-            if (stderr) {
-                logger.log('error', stderr);
-            }
-            if (error !== null) {
-                logger.log('error', error);
-                res.send(error);
-                return next(new Error([error]));
-            }
-        });
-
+        utils.executeSync(logger, commandline);
 
         // create the sha of the tgz
         // var tarfile = fs.readFileSync(req.file.path, 'utf8');
@@ -336,9 +305,12 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
 });
 
+
+// POST INVOKEFUNCTION
+
 app.post('/invokeFunction', async function (req, res) {
 
-    var exec = require('child_process').exec;
+    // TODO: Segmentate method.
 
     var funcName = req.body.funcName;
     var params = req.body.params;
@@ -381,16 +353,7 @@ app.post('/invokeFunction', async function (req, res) {
 
     // create the folder
     var commandline = `mkdir -p calls/${callNum}`;
-    execSync(commandline, function (error, stdout, stderr) {
-        if (stderr) {
-            logger.log('error', stderr);
-        }
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
-        }
-    });
+    utils.executeSync(logger,commandline);
 
     // add an info file
     fileObject = {
@@ -398,52 +361,23 @@ app.post('/invokeFunction', async function (req, res) {
         "function": funcName
     };
     var commandline = `echo '${JSON.stringify(fileObject)}' > calls/${callNum}/info.json`
-    execSync(commandline, function (error, stdout, stderr) {
-        if (stderr) {
-            logger.log('error', stderr);
-        }
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
-        }
-    });
+    utils.executeSync(logger,commandline);
 
     // create the params file
     var commandline = `echo '${JSON.stringify(params)}' > calls/${callNum}/input.json`
-    execSync(commandline, function (error, stdout, stderr) {
-        if (stderr) {
-            logger.log('error', stderr);
-        }
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
-        }
-    });
+    utils.executeSync(logger,commandline);
 
-    // launch the container volume-binding the uncompressed files
+    // launch the container volume-binding the uncompressed files. Leave the container idling 
+    // (this should be done on the image I guess).
+
 
     // TODO: parametrize the hostpath
 
-    var commandline = `docker run \
-        -d \
-        -v ${__dirname}/uploads/${runtime}/${funcName}:${containerPath} \
-        -v ${__dirname}/calls/${callNum}:/call \
-        ${registryIP}:${registryPort}/${runtime}`
+    // TODO: unique name for the container
 
-    logger.debug(commandline);
+    await utils.createContainer(logger, runtime, funcName, containerPath, registryIP, registryPort, callNum);
 
-    execSync(commandline, function (error, stdout, stderr) {
-        if (stderr) {
-            logger.log('error', stderr);
-        }
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
-        }
-    });
+    // TODO: copy data
 
     // TODO: call the function on the runtime image. read the parameters and pass them to the func.
 
@@ -451,5 +385,8 @@ app.post('/invokeFunction', async function (req, res) {
 
     res.sendStatus(200);
 });
+
+
+// SERVER START
 
 app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
