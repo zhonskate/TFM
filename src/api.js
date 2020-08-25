@@ -11,7 +11,9 @@ const {
     execSync
 } = require('child_process');
 var utils = require('./utils');
-const { validName } = require('./utils');
+const {
+    validName
+} = require('./utils');
 
 // LOGGER-RELATED DECLARATIONS
 
@@ -165,7 +167,7 @@ app.post('/registerRuntime', async function (req, res) {
         }
 
         // check del runtime name
-        if(utils.validName(logger,img) == false) {
+        if (utils.validName(logger, img) == false) {
             logger.warn('no special characters allowed on runtime name');
             res.sendStatus(400);
             return;
@@ -224,7 +226,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         req.file.runtimeName = req.params.runtimeName;
         logger.debug(JSON.stringify(req.file))
 
-        if(!utils.validName(logger,functionName)) {
+        if (!utils.validName(logger, functionName)) {
             logger.warn('no special characters allowed on function name');
 
             //remove the incoming file.
@@ -353,7 +355,7 @@ app.post('/invokeFunction', async function (req, res) {
 
     // create the folder
     var commandline = `mkdir -p calls/${callNum}`;
-    utils.executeSync(logger,commandline);
+    utils.executeSync(logger, commandline);
 
     // add an info file
     fileObject = {
@@ -361,11 +363,11 @@ app.post('/invokeFunction', async function (req, res) {
         "function": funcName
     };
     var commandline = `echo '${JSON.stringify(fileObject)}' > calls/${callNum}/info.json`
-    utils.executeSync(logger,commandline);
+    utils.executeSync(logger, commandline);
 
     // create the params file
     var commandline = `echo '${JSON.stringify(params)}' > calls/${callNum}/input.json`
-    utils.executeSync(logger,commandline);
+    utils.executeSync(logger, commandline);
 
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).

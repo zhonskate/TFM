@@ -47,8 +47,8 @@ async function executeSync(logger, commandline) {
 
 //FIXME: no va
 
-async function validName(logger, name){
-    
+async function validName(logger, name) {
+
     logger.verbose(`TESTING REGEX VALIDNAME ${name}`);
     var reg = /[!@#$%^&*(),.?":{}|<>-_//]/
     logger.debug(`REG RESULT ${reg.test(name)}`);
