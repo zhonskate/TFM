@@ -1,0 +1,6 @@
+{
+    "image": "pythonruntime",
+    "path": "/ws",
+    "dependencies": "pip3 install -r requirements.txt",
+    "run":"python3 test.py" 
+}

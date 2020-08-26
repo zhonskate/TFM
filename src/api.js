@@ -50,6 +50,7 @@ logger.log('error', '0: error'); */
 const DB_NAME = 'db.json';
 const COLLECTION_FUNCTIONS = 'functions';
 const COLLECTION_RUNTIMES = 'runtimes';
+const COLLECTION_CALLS = 'calls';
 const UPLOAD_PATH = 'uploads';
 const upload = multer({
     dest: `${UPLOAD_PATH}/`
@@ -69,7 +70,10 @@ app.use(bodyParser.json())
 const port = 3000
 var registryIP = 'localhost';
 var registryPort = '5000';
-var callNum = 0;
+var colFunctions, colCalls, colRuntimes;
+
+// FIXME: Cambiarlo por algo con sentido
+var callNum = Math.floor(Math.random() * 10000);
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -77,7 +81,7 @@ var callNum = 0;
 const loadCollection = function (colName, db) {
     return new Promise(resolve => {
         db.loadDatabase({}, () => {
-            const _collection = db.getCollection(colName) || db.addCollection(colName);
+            const _collection = db.getCollection(colName) || db.addCollection(colName, { autoupdate: true });
             resolve(_collection);
         })
     });
@@ -90,14 +94,22 @@ const cleanFolder = function (folderPath) {
 
 cleanFolder(UPLOAD_PATH);
 
+// TODO: DATABASE SAVING NOT WORKING
+async function loadDBs(){
+    colFunctions = await loadCollection(COLLECTION_FUNCTIONS, db);
+    colRuntimes = await loadCollection(COLLECTION_FUNCTIONS, db);
+    colCalls = await loadCollection(COLLECTION_CALLS, db);
+} 
 
+loadDBs().then(() => {
+    logger.info('DBs loaded')
+})
 // GET FUNCTIONS
 
 app.get('/functions', async function (req, res) {
     logger.info(`GET FUNCTIONS`);
 
-    const col = await loadCollection(COLLECTION_FUNCTIONS, db);
-    var solArr = col.where(function (obj) {
+    var solArr = colFunctions.where(function (obj) {
         return obj.functionName != '';
     });
 
@@ -120,8 +132,7 @@ app.get('/functions', async function (req, res) {
 app.get('/runtimes', async function (req, res) {
     logger.info(`GET RUNTIMES`);
 
-    const col = await loadCollection(COLLECTION_RUNTIMES, db);
-    var solArr = col.where(function (obj) {
+    var solArr = colRuntimes.where(function (obj) {
         return obj.image != '';
     });
 
@@ -157,11 +168,14 @@ app.post('/registerRuntime', async function (req, res) {
         logger.debug(req.body.path);
         img = req.body.image;
         path = req.body.path;
+        deps = req.body.dependencies;
+        runCommand = req.body.run;
 
 
         // check de parámetros
-        if (img == undefined || path == undefined) {
-            logger.warn('USAGE image:<imageName>, path: <path>');
+        if (img == undefined || path == undefined || deps == undefined || runCommand == undefined) {
+            logger.warn('USAGE image:<imageName>, path: <path>, dependencies: <deps>, run: <run command>');
+            logger.warn('See the examples')
             res.sendStatus(400);
             return;
         }
@@ -173,8 +187,7 @@ app.post('/registerRuntime', async function (req, res) {
             return;
         }
 
-        const col = await loadCollection(COLLECTION_RUNTIMES, db);
-        var already = col.where(function (obj) {
+        var already = colRuntimes.where(function (obj) {
             return obj.image == req.body.image
         });
         logger.debug(already.length);
@@ -184,9 +197,7 @@ app.post('/registerRuntime', async function (req, res) {
             res.sendStatus(400);
             return;
         }
-        const data = col.insert(req.body);
-        db.saveDatabase();
-
+        const data = colRuntimes.insert(req.body);
 
         // tag image
         var commandline = `\
@@ -226,7 +237,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         req.file.runtimeName = req.params.runtimeName;
         logger.debug(JSON.stringify(req.file))
 
-        if (!utils.validName(logger, functionName)) {
+        if (utils.validName(logger, req.file.functionName) == false) {
             logger.warn('no special characters allowed on function name');
 
             //remove the incoming file.
@@ -237,8 +248,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         }
 
         //check if runtime exists
-        const runCol = await loadCollection(COLLECTION_RUNTIMES, db);
-        var exists = runCol.where(function (obj) {
+        var exists = colRuntimes.where(function (obj) {
             return obj.image == req.file.runtimeName;
         });
         logger.debug(exists.length);
@@ -255,8 +265,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
-        const col = await loadCollection(COLLECTION_FUNCTIONS, db);
-        var already = col.where(function (obj) {
+        var already = colFunctions.where(function (obj) {
             return obj.functionName == req.file.functionName;
         });
         logger.debug(already.length);
@@ -272,8 +281,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
             return;
         }
 
-        const data = col.insert(req.file);
-        db.saveDatabase();
+        const data = colFunctions.insert(req.file);
 
         var folderName = req.file.runtimeName + '/' + req.file.functionName;
         logger.debug(`function Name ${folderName}`)
@@ -326,8 +334,7 @@ app.post('/invokeFunction', async function (req, res) {
     }
 
     // check if function exists
-    const col = await loadCollection(COLLECTION_FUNCTIONS, db);
-    var funcQuery = col.where(function (obj) {
+    var funcQuery = colFunctions.where(function (obj) {
         return obj.functionName == req.body.funcName;
     });
     logger.debug(funcQuery.length);
@@ -341,13 +348,24 @@ app.post('/invokeFunction', async function (req, res) {
     var runtime = funcQuery[0].runtimeName;
     logger.debug(`runtime ${runtime}`);
 
-    // look for the runtime path
-    const runCol = await loadCollection(COLLECTION_RUNTIMES, db);
-    var runQuery = runCol.where(function (obj) {
+    // look for the runtime specs
+    var runQuery = colRuntimes.where(function (obj) {
         return obj.image == runtime;
     });
 
+    insert = {
+        "funcName": req.body.funcName,
+        "params": req.body.params,
+        "callNum": callNum,
+        "status": 'placeholder',
+        "result": ''
+    }
+    var insertedCall = colCalls.insert(req.body);
+
+
     var containerPath = runQuery[0].path;
+    var runtimeRunCmd = runQuery[0].run;
+    var runtimeDeps = runQuery[0].dependencies;
     logger.debug(`object runtime ${JSON.stringify(runQuery)}`);
     logger.debug(`container path ${containerPath}`);
 
@@ -375,15 +393,29 @@ app.post('/invokeFunction', async function (req, res) {
 
     // TODO: parametrize the hostpath
 
-    // TODO: unique name for the container
-
-    await utils.createContainer(logger, runtime, funcName, containerPath, registryIP, registryPort, callNum);
+    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
 
     // TODO: copy data
+    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
+
+    var containerName = `${callNum}-${runtime}`;
+    await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
 
     // TODO: call the function on the runtime image. read the parameters and pass them to the func.
 
+    await utils.startContainer(logger, containerName);
+
+    // Install the dependencies
+
+    await utils.runDockerCommand(logger, containerName, runtimeDeps);
+
     // pass the arguments to the running function
+
+    await utils.copyInput(logger, containerName, containerPath, callNum);
+
+    // exec the function
+
+    await utils.runDockerCommand(logger, containerName, runtimeRunCmd);
 
     res.sendStatus(200);
 });
@@ -392,3 +424,15 @@ app.post('/invokeFunction', async function (req, res) {
 // SERVER START
 
 app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
+
+//----------------------------------------------------------------------------------//
+// SIGNAL HANDLING
+
+process.on('SIGINT', function () {
+    logger.info('Received SIGTERM');
+
+    db.saveDatabase();
+
+    process.exit();
+
+});

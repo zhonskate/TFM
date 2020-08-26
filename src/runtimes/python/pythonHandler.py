@@ -4,7 +4,7 @@ import sys
 import subprocess
 
 if len(sys.argv) != 3 or sys.argv[1] is 'help':
-    print('USAGE: python3 pythonHandler.py <FILE> <REQUIREMENTS FILE>')
+    print('python3 pythonHandler.py test.py <REQUIREMENTS FILE>')
     exit(0)
 
 codeFile = sys.argv[1]
