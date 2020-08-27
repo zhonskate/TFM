@@ -11,9 +11,9 @@ const {
     execSync
 } = require('child_process');
 var utils = require('./utils');
-const {
-    validName
-} = require('./utils');
+var invoke = require('./invoke');
+const fs = require('fs');
+
 
 // LOGGER-RELATED DECLARATIONS
 
@@ -52,6 +52,7 @@ const COLLECTION_FUNCTIONS = 'functions';
 const COLLECTION_RUNTIMES = 'runtimes';
 const COLLECTION_CALLS = 'calls';
 const UPLOAD_PATH = 'uploads';
+const CALLS_PATH = 'calls';
 const upload = multer({
     dest: `${UPLOAD_PATH}/`
 }); // multer configuration
@@ -71,9 +72,11 @@ const port = 3000
 var registryIP = 'localhost';
 var registryPort = '5000';
 var colFunctions, colCalls, colRuntimes;
+const INVOKE_MODE = 'PRELOAD_NOTHING';
 
 // FIXME: Cambiarlo por algo con sentido
-var callNum = Math.floor(Math.random() * 10000);
+// var callNum = Math.floor(Math.random() * 10000);
+var callNum = 0;
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -81,7 +84,9 @@ var callNum = Math.floor(Math.random() * 10000);
 const loadCollection = function (colName, db) {
     return new Promise(resolve => {
         db.loadDatabase({}, () => {
-            const _collection = db.getCollection(colName) || db.addCollection(colName, { autoupdate: true });
+            const _collection = db.getCollection(colName) || db.addCollection(colName, {
+                autoupdate: true
+            });
             resolve(_collection);
         })
     });
@@ -93,20 +98,21 @@ const cleanFolder = function (folderPath) {
 };
 
 cleanFolder(UPLOAD_PATH);
+cleanFolder(CALLS_PATH);
 
 // TODO: DATABASE SAVING NOT WORKING
-async function loadDBs(){
+async function loadDBs() {
     colFunctions = await loadCollection(COLLECTION_FUNCTIONS, db);
-    colRuntimes = await loadCollection(COLLECTION_FUNCTIONS, db);
+    colRuntimes = await loadCollection(COLLECTION_RUNTIMES, db);
     colCalls = await loadCollection(COLLECTION_CALLS, db);
-} 
+}
 
 loadDBs().then(() => {
     logger.info('DBs loaded')
 })
 // GET FUNCTIONS
 
-app.get('/functions', async function (req, res) {
+app.get('/functions', function (req, res) {
     logger.info(`GET FUNCTIONS`);
 
     var solArr = colFunctions.where(function (obj) {
@@ -129,7 +135,7 @@ app.get('/functions', async function (req, res) {
 
 // GET RUNTIMES
 
-app.get('/runtimes', async function (req, res) {
+app.get('/runtimes', function (req, res) {
     logger.info(`GET RUNTIMES`);
 
     var solArr = colRuntimes.where(function (obj) {
@@ -145,6 +151,25 @@ app.get('/runtimes', async function (req, res) {
     logger.debug(sol);
 
     res.send(sol);
+
+    db.saveDatabase();
+
+});
+
+
+// GET CALLS
+
+app.get('/calls', function (req, res) {
+    logger.info(`GET CALLS`);
+
+    var solArr = colCalls.where(function (obj) {
+        return obj.status != '';
+    });
+
+    // TODO: Format
+    logger.debug(solArr);
+
+    res.send(solArr);
 
     db.saveDatabase();
 
@@ -320,6 +345,8 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
 app.post('/invokeFunction', async function (req, res) {
 
+    callNum = callNum + 1;
+
     // TODO: Segmentate method.
 
     var funcName = req.body.funcName;
@@ -360,7 +387,7 @@ app.post('/invokeFunction', async function (req, res) {
         "status": 'placeholder',
         "result": ''
     }
-    var insertedCall = colCalls.insert(req.body);
+    var insertedCall = colCalls.insert(insert);
 
 
     var containerPath = runQuery[0].path;
@@ -372,7 +399,7 @@ app.post('/invokeFunction', async function (req, res) {
     // save the parameters to a file
 
     // create the folder
-    var commandline = `mkdir -p calls/${callNum}`;
+    var commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
     utils.executeSync(logger, commandline);
 
     // add an info file
@@ -380,44 +407,33 @@ app.post('/invokeFunction', async function (req, res) {
         "runtime": runtime,
         "function": funcName
     };
-    var commandline = `echo '${JSON.stringify(fileObject)}' > calls/${callNum}/info.json`
+    var commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
     utils.executeSync(logger, commandline);
 
     // create the params file
-    var commandline = `echo '${JSON.stringify(params)}' > calls/${callNum}/input.json`
+    var commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
     utils.executeSync(logger, commandline);
 
-    // launch the container volume-binding the uncompressed files. Leave the container idling 
-    // (this should be done on the image I guess).
 
+    // TODO: SPLIT the method here and sort out the invocation policies.
 
-    // TODO: parametrize the hostpath
-
-    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
-
-    // TODO: copy data
-    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
-
-    var containerName = `${callNum}-${runtime}`;
-    await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
-
-    // TODO: call the function on the runtime image. read the parameters and pass them to the func.
-
-    await utils.startContainer(logger, containerName);
-
-    // Install the dependencies
-
-    await utils.runDockerCommand(logger, containerName, runtimeDeps);
-
-    // pass the arguments to the running function
-
-    await utils.copyInput(logger, containerName, containerPath, callNum);
-
-    // exec the function
-
-    await utils.runDockerCommand(logger, containerName, runtimeRunCmd);
-
-    res.sendStatus(200);
+    switch (INVOKE_MODE) {
+        case 'PRELOAD_NOTHING':
+            invoke.preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH)
+            .then((insertedCall) => {
+                logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+                logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
+                colCalls.update(insertedCall);
+            });
+            break;
+        case 'PRELOAD_RUNTIME':
+            invoke.preloadRuntime();
+            break;
+        case 'PRELOAD_FUNCTION':
+            invoke.preloadFunction()
+            break;
+    }
+    res.send('' + callNum);
 });
 
 
@@ -429,10 +445,15 @@ app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${
 // SIGNAL HANDLING
 
 process.on('SIGINT', function () {
-    logger.info('Received SIGTERM');
+    logger.info('Received SIGINT');
 
-    db.saveDatabase();
-
-    process.exit();
+    db.saveDatabase(function (err) {
+        if (err) {
+            logger.error("error : " + err);
+        } else {
+            logger.info("database saved.");
+            process.exit();
+        }
+    });
 
 });

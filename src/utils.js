@@ -1,5 +1,6 @@
 const {
-    execSync
+    execSync,
+    exec
 } = require('child_process');
 
 async function executeSync(logger, commandline) {
@@ -7,6 +8,24 @@ async function executeSync(logger, commandline) {
     logger.verbose(`EXECUTE SYNC ${commandline}`);
 
     execSync(commandline, function (error, stdout, stderr) {
+
+        if (stderr) {
+            logger.log('error', stderr);
+        }
+
+        if (error !== null) {
+            logger.log('error', error);
+            res.send(error);
+            return next(new Error([error]));
+        }
+    });
+}
+
+function execute(logger, commandline) {
+
+    logger.verbose(`EXECUTE SYNC ${commandline}`);
+
+    exec(commandline, function (error, stdout, stderr) {
 
         if (stderr) {
             logger.log('error', stderr);
@@ -29,10 +48,10 @@ async function createContainer(logger, runtime, registryIP, registryPort, callNu
         -t \
         ${registryIP}:${registryPort}/${runtime}`
 
-    executeSync(logger, commandline); 
+    executeSync(logger, commandline);
 }
 
-async function copyFunction(logger, runtime, funcName, containerName, containerPath){
+async function copyFunction(logger, runtime, funcName, containerName, containerPath) {
 
     logger.verbose(`COPY DATA ${runtime} ${funcName}`);
 
@@ -40,7 +59,7 @@ async function copyFunction(logger, runtime, funcName, containerName, containerP
         ${__dirname}/uploads/${runtime}/${funcName}/. \
         ${containerName}:${containerPath}`
 
-    executeSync(logger, commandline); 
+    executeSync(logger, commandline);
 }
 
 async function startContainer(logger, containerName) {
@@ -49,7 +68,7 @@ async function startContainer(logger, containerName) {
 
     var commandline = `docker start ${containerName}`;
 
-    executeSync(logger, commandline); 
+    executeSync(logger, commandline);
 }
 
 async function copyInput(logger, containerName, containerPath, callNum) {
@@ -62,6 +81,45 @@ async function copyInput(logger, containerName, containerPath, callNum) {
 
     executeSync(logger, commandline);
 }
+
+async function fetchOutput(logger, containerName, containerPath, callNum) {
+
+    logger.verbose(`FETCH OUTPUT ${containerName}`)
+
+    var commandline = `docker cp \
+        ${containerName}:${containerPath}/output.json \
+        ${__dirname}/calls/${callNum}`
+
+    executeSync(logger, commandline);
+}
+
+function stopContainer(logger, containerName) {
+    logger.verbose(`STOP CONTAINER ${containerName}`)
+
+    var commandline = `docker stop \
+        ${containerName}`
+
+    execute(logger, commandline);
+}
+
+function deleteContainer(logger, containerName) {
+    logger.verbose(`DELETE CONTAINER ${containerName}`)
+
+    var commandline = `docker rm \
+        ${containerName}`
+
+    execute(logger, commandline);
+}
+
+function forceDeleteContainer(logger, containerName) {
+    logger.verbose(`DELETE CONTAINER ${containerName}`)
+
+    var commandline = `docker rm -f \
+        ${containerName}`
+
+    execute(logger, commandline);
+}
+
 
 async function runDockerCommand(logger, containerName, command) {
 
@@ -88,6 +146,10 @@ module.exports = {
     copyFunction,
     startContainer,
     copyInput,
+    fetchOutput,
+    stopContainer,
+    deleteContainer,
+    forceDeleteContainer,
     runDockerCommand,
     validName
 };
