@@ -12,7 +12,10 @@ const {
 } = require('child_process');
 var utils = require('./utils');
 var invoke = require('./invoke');
+var zmq = require('zeromq');
 const fs = require('fs');
+const EventEmitter = require('events');
+const myEmitter = new EventEmitter();
 
 
 // LOGGER-RELATED DECLARATIONS
@@ -22,7 +25,7 @@ logger.level = 'debug';
 const myformat = logger.format.combine(
     logger.format.colorize(),
     logger.format.timestamp(),
-    logger.format.printf(info => `${info.timestamp} ${info.level}: ${info.message}`)
+    logger.format.printf(info => `[API] ${info.timestamp} ${info.level}: ${info.message}`)
 );
 
 const files = new logger.transports.File({
@@ -73,10 +76,25 @@ var registryIP = 'localhost';
 var registryPort = '5000';
 var colFunctions, colCalls, colRuntimes;
 const INVOKE_MODE = 'PRELOAD_NOTHING';
+const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
+const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
+
+// zmq init
+
+var sockRep = zmq.socket('rep');
+sockRep.bindSync(addressRep);
+
+logger.info(`ZMQ REPLY ON ${addressRep}`);
+
+var sockPub = zmq.socket('pub');
+sockPub.bindSync(addressPub);
+
+logger.info(`ZMQ PUB ON ${addressPub}`);
 
 // FIXME: Cambiarlo por algo con sentido
 // var callNum = Math.floor(Math.random() * 10000);
 var callNum = 0;
+var callQueue = [];
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -240,6 +258,9 @@ app.post('/registerRuntime', async function (req, res) {
 
         logger.info(`image ${img} uploaded to registry`);
         // return the status
+
+        transmitRuntime(img);
+
         res.sendStatus(200);
     } catch (err) {
         logger.error(err);
@@ -331,6 +352,8 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
             if(stdout){console.log(stdout);}
         }) */
 
+        transmitFunction(req.file.functionName);
+
         res.sendStatus(200);
         return;
     } catch (err) {
@@ -414,9 +437,39 @@ app.post('/invokeFunction', async function (req, res) {
     var commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
     utils.executeSync(logger, commandline);
 
+    // prepare the object
+
+    let callObject = {
+        "runtime":runtime,
+        "registry":`${registryIP}:${registryPort}`,
+        "callNum":callNum,
+        "funcName":funcName,
+        "containerPath":containerPath,
+        "runtimeDeps":runtimeDeps,
+        "runtimeRunCmd":runtimeRunCmd,
+        "insertedCall":insertedCall
+    }
+
+    callQueue.push(callObject);
+    logger.debug('PUSHED TO CALLQUEUE');
+    logger.debug(callQueue);
+
 
     // TODO: SPLIT the method here and sort out the invocation policies.
 
+    // myEmitter.emit('event', runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall);
+
+    res.send('' + callNum);
+});
+
+
+// SERVER START
+
+app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
+
+// EVENT HANDLING
+
+myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall) {
     switch (INVOKE_MODE) {
         case 'PRELOAD_NOTHING':
             invoke.preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH)
@@ -433,13 +486,32 @@ app.post('/invokeFunction', async function (req, res) {
             invoke.preloadFunction()
             break;
     }
-    res.send('' + callNum);
 });
 
+// ZMQ
 
-// SERVER START
+sockRep.on("message",function(msg){
 
-app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
+    logger.info(`ZMQ ${msg}`);
+    sockRep.send('world');
+
+});
+
+function transmitRuntime(img){
+
+    logger.verbose(`TRANSMITTING RUNTIME ${img}`);
+
+    sockPub.send(`RUNTIME///${img}`);
+
+}
+
+function transmitFunction(func){
+
+    logger.verbose(`TRANSMITTING FUNCTION ${func}`);
+
+    sockPub.send(`FUNCTION///${func}`);
+
+}
 
 //----------------------------------------------------------------------------------//
 // SIGNAL HANDLING
