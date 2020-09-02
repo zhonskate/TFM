@@ -2,7 +2,7 @@
 
 const express = require('express')
 const bodyParser = require('body-parser')
-const logger = require('winston');
+var logger = require('winston');
 var multer = require('multer');
 var cors = require('cors');
 var Loki = require('lokijs');
@@ -78,6 +78,7 @@ var colFunctions, colCalls, colRuntimes;
 const INVOKE_MODE = 'PRELOAD_NOTHING';
 const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
 const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
+const addressDB = process.env.ZMQ_BIND_ADDRESS || `tcp://127.0.0.1:2002`;
 
 // zmq init
 
@@ -90,6 +91,11 @@ var sockPub = zmq.socket('pub');
 sockPub.bindSync(addressPub);
 
 logger.info(`ZMQ PUB ON ${addressPub}`);
+
+var sockDB = zmq.socket('req');
+sockDB.connect(addressDB);
+
+logger.info(`ZMQ DB ON ${addressDB}`);
 
 // FIXME: Cambiarlo por algo con sentido
 // var callNum = Math.floor(Math.random() * 10000);
@@ -131,46 +137,23 @@ loadDBs().then(() => {
 // GET FUNCTIONS
 
 app.get('/functions', function (req, res) {
+
+    // Montar un express en DB y redirigir
+
     logger.info(`GET FUNCTIONS`);
-
-    var solArr = colFunctions.where(function (obj) {
-        return obj.functionName != '';
-    });
-
-    sol = [];
-
-    for (i = 0; i < solArr.length; i++) {
-        sol.push(solArr[i].functionName);
-    }
-
-    logger.debug(sol);
-
+    sol = dbDriver.getAllFunctions();
     res.send(sol);
 
-    db.saveDatabase();
 });
 
 
 // GET RUNTIMES
 
 app.get('/runtimes', function (req, res) {
+
     logger.info(`GET RUNTIMES`);
-
-    var solArr = colRuntimes.where(function (obj) {
-        return obj.image != '';
-    });
-
-    sol = [];
-
-    for (i = 0; i < solArr.length; i++) {
-        sol.push(solArr[i].image);
-    }
-
-    logger.debug(sol);
-
+    sol = dbDriver.getAllRuntimes();
     res.send(sol);
-
-    db.saveDatabase();
 
 });
 
@@ -178,18 +161,10 @@ app.get('/runtimes', function (req, res) {
 // GET CALLS
 
 app.get('/calls', function (req, res) {
+    
     logger.info(`GET CALLS`);
-
-    var solArr = colCalls.where(function (obj) {
-        return obj.status != '';
-    });
-
-    // TODO: Format
-    logger.debug(solArr);
-
-    res.send(solArr);
-
-    db.saveDatabase();
+    sol = dbDriver.getAllCalls();
+    res.send(sol);
 
 });
 
@@ -241,6 +216,7 @@ app.post('/registerRuntime', async function (req, res) {
             return;
         }
         const data = colRuntimes.insert(req.body);
+        db.saveDatabase();
 
         // tag image
         var commandline = `\
@@ -328,6 +304,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         }
 
         const data = colFunctions.insert(req.file);
+        db.saveDatabase();
 
         var folderName = req.file.runtimeName + '/' + req.file.functionName;
         logger.debug(`function Name ${folderName}`)
@@ -411,6 +388,7 @@ app.post('/invokeFunction', async function (req, res) {
         "result": ''
     }
     var insertedCall = colCalls.insert(insert);
+    db.saveDatabase();
 
 
     var containerPath = runQuery[0].path;
