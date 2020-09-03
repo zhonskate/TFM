@@ -9,7 +9,7 @@ echo -e ''
 # registerFunction
 
 curl -X POST \
--F module=@/Users/zhon/Repos/TFM/src/runtimes/python/dice/python.tar.gz \
+-F module=@../runtimes/python/dice/python.tar.gz \
 localhost:3000/registerFunction/pythonruntime/dice
 echo -e ''
 

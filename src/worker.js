@@ -15,12 +15,7 @@ const COLLECTION_RUNTIMES = 'runtimes';
 const COLLECTION_CALLS = 'calls';
 const UPLOAD_PATH = 'uploads';
 const CALLS_PATH = 'calls';
-const upload = multer({
-    dest: `${UPLOAD_PATH}/`
-}); // multer configuration
-const db = new Loki(`${UPLOAD_PATH}/${DB_NAME}`, {
-    persistenceMethod: 'fs'
-});
+
 
 // Data structures
 
@@ -48,35 +43,6 @@ const console = new logger.transports.Console({
 
 logger.add(console);
 logger.add(files);
-
-// DB INIT
-
-const loadCollection = function (colName, db) {
-    return new Promise(resolve => {
-        db.loadDatabase({}, () => {
-            const _collection = db.getCollection(colName) || db.addCollection(colName, {
-                autoupdate: true
-            });
-            resolve(_collection);
-        })
-    });
-}
-
-const cleanFolder = function (folderPath) {
-    // delete files inside folder but not the folder itself
-    del.sync([`${folderPath}/**`, `!${folderPath}`]);
-};
-
-// TODO: DATABASE SAVING NOT WORKING
-async function loadDBs() {
-    colFunctions = await loadCollection(COLLECTION_FUNCTIONS, db);
-    colRuntimes = await loadCollection(COLLECTION_RUNTIMES, db);
-    colCalls = await loadCollection(COLLECTION_CALLS, db);
-}
-
-loadDBs().then(() => {
-    logger.info('DBs loaded')
-})
 
 // zmq init
 
