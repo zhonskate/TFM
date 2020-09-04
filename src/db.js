@@ -122,6 +122,32 @@ function getAllCalls() {
 
 }
 
+function checkRuntimePresent() {
+    var already = colRuntimes.where(function (obj) {
+        return obj.image == img
+    });
+    logger.debug(already.length);
+    if (already.length > 0) {
+        logger.debug(`already ${JSON.stringify(already)}`);
+        logger.warn(`runtime already registered`);
+        return true;
+    }
+    return false;
+} 
+
+function insertRuntime(body) {
+    logger.verbose(`insertRuntime ${JSON.stringify(body)}`)
+    const data = colRuntimes.insert(body);
+    db.saveDatabase();
+    sockRep.send('done');
+} 
+
+function insertFunction(body) {
+    logger.verbose(`insertFunction ${JSON.stringify(body)}`)
+    const data = colFunctions.insert(body);
+    db.saveDatabase();
+    sockRep.send('done');
+} 
 
 
 
@@ -131,5 +157,21 @@ sockRep.bind(addressReq);
 logger.info(`DB Req binded to ${addressReq}`);
 
 sockRep.on('message', function(msg){
-    logger.info(`MESSAGE REQ ${msg}`);
+
+    logger.verbose(`SOCKREP ${msg}`)
+
+    msg = JSON.parse(msg);
+
+    switch (msg.msgType) {
+        case 'checkRuntimePresent':
+            checkRuntimePresent(msg.content);
+            break;
+        case 'insertRuntime':
+            insertRuntime(msg.content);
+            break;
+        case 'insertFunction':
+            insertFunction(msg.content);
+            break;
+
+    }
 });

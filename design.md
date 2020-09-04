@@ -20,3 +20,7 @@
 ## organizacion
 
 * se debe seguir un esquema de centralizacion. Separar los hilos en los workers. Es decir, cada uno de los workers debe partirse en miniworkers para no bloquear.
+
+## Rant sin mucho sentido
+
+La base de datos está centralizada y desacoplada de los componentes. Cada consulta es una petición asíncrona. Los componentes tienen arrays con IDs para poder fetchear los datos de la DB.

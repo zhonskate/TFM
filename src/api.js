@@ -101,6 +101,8 @@ logger.info(`ZMQ DB ON ${addressDB}`);
 // var callNum = Math.floor(Math.random() * 10000);
 var callNum = 0;
 var callQueue = [];
+var runtimeList = [];
+var FunctionList = [];
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -205,39 +207,43 @@ app.post('/registerRuntime', async function (req, res) {
             return;
         }
 
-        var already = colRuntimes.where(function (obj) {
-            return obj.image == req.body.image
-        });
-        logger.debug(already.length);
-        if (already.length > 0) {
-            logger.debug(`already ${JSON.stringify(already)}`);
-            logger.warn(`runtime already registered`);
+        // check if runtime is present in the DB
+        // if we want to make the api
+
+        if (runtimeList.includes(img) == false) {
+            var sendMsg = {}
+            sendMsg.msgType = 'insertRuntime';
+            sendMsg.content = req.body;
+            sockDB.send(JSON.stringify(sendMsg));
+            runtimeList.push(img);
+            // tag image
+            var commandline = `\
+            docker \
+            tag \
+            ${img} ${registryIP}:${registryPort}/${img}`
+            utils.executeSync(logger, commandline);
+
+            // push the image to the registry
+            var commandline = `\
+            docker \
+            push \
+            ${registryIP}:${registryPort}/${img}`
+            utils.executeSync(logger, commandline);
+
+            logger.info(`image ${img} uploaded to registry`);
+            // return the status
+
+            transmitRuntime(img);
+
+            res.sendStatus(200);
+            return;
+        }
+        else {
+            logger.warn('runtime already registered');
             res.sendStatus(400);
             return;
         }
-        const data = colRuntimes.insert(req.body);
-        db.saveDatabase();
 
-        // tag image
-        var commandline = `\
-        docker \
-        tag \
-        ${img} ${registryIP}:${registryPort}/${img}`
-        utils.executeSync(logger, commandline);
-
-        // push the image to the registry
-        var commandline = `\
-        docker \
-        push \
-        ${registryIP}:${registryPort}/${img}`
-        utils.executeSync(logger, commandline);
-
-        logger.info(`image ${img} uploaded to registry`);
-        // return the status
-
-        transmitRuntime(img);
-
-        res.sendStatus(200);
     } catch (err) {
         logger.error(err);
         res.sendStatus(400);
@@ -270,11 +276,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         }
 
         //check if runtime exists
-        var exists = colRuntimes.where(function (obj) {
-            return obj.image == req.file.runtimeName;
-        });
-        logger.debug(exists.length);
-        if (exists.length != 1) {
+        if (runtimeList.includes(req.file.runtimeName) == false) {
             logger.warn(`Inexistent runtime`);
 
             //remove the incoming file.
@@ -287,52 +289,47 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
-        var already = colFunctions.where(function (obj) {
-            return obj.functionName == req.file.functionName;
-        });
-        logger.debug(already.length);
-        if (already.length > 0) {
-            logger.debug(`already ${JSON.stringify(already)}`);
-            logger.warn(`Function name already registered`);
 
-            //remove the incoming file.
-            var commandline = `rm uploads/${req.file.filename}`;
+        if (runtimeList.includes(req.params.functionName) == false) {
+            var sendMsg = {}
+            sendMsg.msgType = 'insertFunction';
+            sendMsg.content = req.file;
+            sockDB.send(JSON.stringify(sendMsg));
+            runtimeList.push(req.params.functionName);
+            var folderName = req.file.runtimeName + '/' + req.file.functionName;
+            logger.debug(`function Name ${folderName}`)
+
+            // Create a folder to hold the function contents
+            var commandline = `mkdir -p uploads/${folderName}`
             utils.executeSync(logger, commandline);
 
+            // extract the file on the newly created folder
+            var commandline = `tar -C uploads/${folderName} -zxf uploads/${req.file.filename}`
+            utils.executeSync(logger, commandline);
+
+            // create the sha of the tgz
+            // var tarfile = fs.readFileSync(req.file.path, 'utf8');
+            // var hash = sha256(tarfile);
+
+
+            // prepare folder to build the image
+            /* fs.rename(req.file.path,'./build/module.tar.gz',function(error, stdout, stderr){
+                if(error){console.log(error);}
+                if(stderr){console.log(stderr);}
+                if(stdout){console.log(stdout);}
+            }) */
+
+            transmitFunction(req.file.functionName);
+
+            res.sendStatus(200);
+            return;
+        }
+        else {
+            logger.warn('runtime already registered');
             res.sendStatus(400);
             return;
         }
 
-        const data = colFunctions.insert(req.file);
-        db.saveDatabase();
-
-        var folderName = req.file.runtimeName + '/' + req.file.functionName;
-        logger.debug(`function Name ${folderName}`)
-
-        // Create a folder to hold the function contents
-        var commandline = `mkdir -p uploads/${folderName}`
-        utils.executeSync(logger, commandline);
-
-        // extract the file on the newly created folder
-        var commandline = `tar -C uploads/${folderName} -zxf uploads/${req.file.filename}`
-        utils.executeSync(logger, commandline);
-
-        // create the sha of the tgz
-        // var tarfile = fs.readFileSync(req.file.path, 'utf8');
-        // var hash = sha256(tarfile);
-
-
-        // prepare folder to build the image
-        /* fs.rename(req.file.path,'./build/module.tar.gz',function(error, stdout, stderr){
-            if(error){console.log(error);}
-            if(stderr){console.log(stderr);}
-            if(stdout){console.log(stdout);}
-        }) */
-
-        transmitFunction(req.file.functionName);
-
-        res.sendStatus(200);
-        return;
     } catch (err) {
         logger.error(err);
         res.sendStatus(400);
@@ -470,8 +467,14 @@ myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcN
 
 sockRep.on("message",function(msg){
 
-    logger.info(`ZMQ ${msg}`);
+    logger.info(`SOCKREP ${msg}`);
     sockRep.send('world');
+
+});
+
+sockDB.on("message",function(msg){
+
+    logger.info(`SOCKDB ${msg}`);
 
 });
 
