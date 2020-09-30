@@ -172,6 +172,7 @@ sockRep.on('message', function(msg){
         case 'insertFunction':
             insertFunction(msg.content);
             break;
+        // TODO: return requests fetching info for workers. getFuncInfo, etc.
 
     }
 });

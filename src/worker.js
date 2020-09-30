@@ -75,24 +75,28 @@ sockSub.on('message', function(msg){
 
 });
 
-// function processRuntime(arrayMsg) {
+function processRuntime(arrayMsg) {
 
-//     var img = arrayMsg[1]
-//     logger.verbose(`RECEIVED RUNTIME ${img}`);
-//     runtimePool.push(img);
-//     logger.verbose(runtimePool);
+    var img = arrayMsg[1]
+    logger.verbose(`RECEIVED RUNTIME ${img}`);
+    runtimePool.push(img);
+    logger.verbose(runtimePool);
 
-// }
+}
 
-// function processFunction(arrayMsg) {
+function processFunction(arrayMsg) {
 
-//     var funcName = arrayMsg[1]
-//     logger.verbose(`RECEIVED FUNCTION ${funcName}`);
-//     functionPool.push(funcName);
-//     // FETCH THE FUNCTION DATA
-//     logger.verbose(functionPool);
+    var funcName = arrayMsg[1]
+    logger.verbose(`RECEIVED FUNCTION ${funcName}`);
+    functionPool.push(funcName);
+    // FETCH THE FUNCTION DATA
+    logger.verbose(functionPool);
 
-// }
+}
+
+// TODO: pool for available rts and functions. Auto management of each pool
+// TODO: fetch info to the DB and save it.
+// TODO: get the calls and invoke as needed. 
 
 
 sockReq.on('message', function(msg){
