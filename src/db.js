@@ -149,6 +149,17 @@ function insertFunction(body) {
     sockRep.send('done');
 } 
 
+function fetchFunction(body){
+    logger.verbose(`fetchFunction ${JSON.stringify(body)}`)
+    // check if function exists
+    var funcQuery = colFunctions.where(function (obj) {
+        return obj.functionName == body.funcName;
+    });
+    // TODO: Debug funcQuery, get the results and send them back to the worker
+    logger.log(`funcQUery ${funcQuery}`);
+    db.saveDatabase();
+    sockRep.send(JSON.stringify(funcQuery));
+}
 
 
 var sockRep = zmq.socket('rep');
@@ -171,6 +182,9 @@ sockRep.on('message', function(msg){
             break;
         case 'insertFunction':
             insertFunction(msg.content);
+            break;
+        case 'fetchFunction':
+            fetchFunction(msg.content);
             break;
         // TODO: return requests fetching info for workers. getFuncInfo, etc.
 

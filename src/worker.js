@@ -58,6 +58,12 @@ sockSub.subscribe('');
 logger.info(`Worker Sub connected to ${addressSub}`);
 
 
+var sockDB = zmq.socket('req');
+const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://127.0.0.1:2002`;
+sockDB.connect(addressDB);
+logger.info(`Worker Sub connected to ${addressDB}`);
+
+
 sockSub.on('message', function(msg){
     logger.info(`MESSAGE PUB ${msg}`);
 
@@ -89,8 +95,18 @@ function processFunction(arrayMsg) {
     var funcName = arrayMsg[1]
     logger.verbose(`RECEIVED FUNCTION ${funcName}`);
     functionPool.push(funcName);
-    // FETCH THE FUNCTION DATA
+    fetchFunction(funcName);
     logger.verbose(functionPool);
+}
+
+function fetchFunction(funcName){
+
+    logger.verbose(`FETCHING FUNCTION ${funcName}`);
+    
+    var sendMsg = {}
+    sendMsg.msgType = 'fetchFunction';
+    sendMsg.content = funcName;
+    sockDB.send(JSON.stringify(sendMsg));
 
 }
 
@@ -101,6 +117,10 @@ function processFunction(arrayMsg) {
 
 sockReq.on('message', function(msg){
     logger.info(`MESSAGE REP ${msg}`);
+});
+
+sockDB.on('message', function(msg){
+    logger.info(`MESSAGE DB ${msg}`);
 });
 
 sockReq.send("worker1");
