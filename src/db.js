@@ -151,12 +151,13 @@ function insertFunction(body) {
 
 function fetchFunction(body){
     logger.verbose(`fetchFunction ${JSON.stringify(body)}`)
+    logger.debug(`funcName ${body}`);
     // check if function exists
     var funcQuery = colFunctions.where(function (obj) {
-        return obj.functionName == body.funcName;
+        return obj.functionName == body;
     });
     // TODO: Debug funcQuery, get the results and send them back to the worker
-    logger.log(`funcQUery ${funcQuery}`);
+    logger.debug(`funcQUery ${JSON.stringify(funcQuery)}`);
     db.saveDatabase();
     sockRep.send(JSON.stringify(funcQuery));
 }
