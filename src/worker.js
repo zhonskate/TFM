@@ -121,6 +121,7 @@ sockReq.on('message', function(msg){
 
 sockDB.on('message', function(msg){
     logger.info(`MESSAGE DB ${msg}`);
+    //TODO: get the func info.
 });
 
 sockReq.send("worker1");
