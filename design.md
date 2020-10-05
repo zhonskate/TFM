@@ -24,3 +24,7 @@
 ## Rant sin mucho sentido
 
 La base de datos está centralizada y desacoplada de los componentes. Cada consulta es una petición asíncrona. Los componentes tienen arrays con IDs para poder fetchear los datos de la DB.
+
+# todos random
+
+orquestar esta wea, ver si se pueden hacer volumenes comunes para los datos o algo así
