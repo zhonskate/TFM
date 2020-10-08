@@ -1,0 +1,2 @@
+./dockerize.sh
+./deploy.sh

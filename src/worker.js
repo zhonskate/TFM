@@ -48,19 +48,19 @@ logger.add(files);
 // zmq init
 
 var sockReq = zmq.socket('req');
-const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://127.0.0.1:2000`;
+const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2000`;
 sockReq.connect(addressReq);
 logger.info(`Worker Req connected to ${addressReq}`);
 
 var sockSub = zmq.socket('sub');
-const addressSub = process.env.ZMQ_CONN_ADDRESS || `tcp://127.0.0.1:2001`;
+const addressSub = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2001`;
 sockSub.connect(addressSub);
 sockSub.subscribe('');
 logger.info(`Worker Sub connected to ${addressSub}`);
 
 
 var sockDB = zmq.socket('req');
-const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://127.0.0.1:2002`;
+const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-db:2002`;
 sockDB.connect(addressDB);
 logger.info(`Worker Sub connected to ${addressDB}`);
 

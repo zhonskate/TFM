@@ -78,7 +78,7 @@ var colFunctions, colCalls, colRuntimes;
 const INVOKE_MODE = 'PRELOAD_NOTHING';
 const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
 const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
-const addressDB = process.env.ZMQ_BIND_ADDRESS || `tcp://127.0.0.1:2002`;
+const addressDB = process.env.ZMQ_BIND_ADDRESS || `tcp://faas-db:2002`;
 
 // zmq init
 
