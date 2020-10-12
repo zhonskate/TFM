@@ -19,8 +19,13 @@ const CALLS_PATH = 'calls';
 
 // Data structures
 
+// Pool of available runtime names
 runtimePool = [];
+
+// Pool of available function names
 functionPool = [];
+
+// Pool of available function info
 functionStore = {};
 
 // winston init
@@ -77,6 +82,9 @@ sockSub.on('message', function(msg){
             break;
         case 'FUNCTION':
             processFunction(arrayMsg);
+            break;
+        case 'INVOKE':
+            invokeFunction(arrayMsg);
             break;
     }
 

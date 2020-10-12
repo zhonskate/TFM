@@ -27,4 +27,6 @@ La base de datos está centralizada y desacoplada de los componentes. Cada consu
 
 # todos random
 
-orquestar esta wea, ver si se pueden hacer volumenes comunes para los datos o algo así
+DONE - orquestar esta wea, ver si se pueden hacer volumenes comunes para los datos o algo así
+
+Tema de los invokes, es una liada. Resortear el tema invoke para las funciones. la politica de invocacion es parte de cada uno de los workers, no depende de la llamada per se. se guarda el call en la db (WIP) y cuando se ejecute se sobreescribe dicho call.

@@ -102,7 +102,7 @@ logger.info(`ZMQ DB ON ${addressDB}`);
 var callNum = 0;
 var callQueue = [];
 var runtimeList = [];
-var FunctionList = [];
+var functionList = [];
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -290,12 +290,13 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
         //check if function is registered.
         //TODO: Accept versions of the same function, maybe other API route
 
-        if (runtimeList.includes(req.params.functionName) == false) {
+        if (functionList.includes(req.params.functionName) == false) {
             var sendMsg = {}
             sendMsg.msgType = 'insertFunction';
             sendMsg.content = req.file;
             sockDB.send(JSON.stringify(sendMsg));
-            runtimeList.push(req.params.functionName);
+            functionList.push(req.params.functionName);
+            logger.debug(`functionList ${functionList}`);
             var folderName = req.file.runtimeName + '/' + req.file.functionName;
             logger.debug(`function Name ${folderName}`)
 
@@ -325,7 +326,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
             return;
         }
         else {
-            logger.warn('runtime already registered');
+            logger.warn('function already registered');
             res.sendStatus(400);
             return;
         }
@@ -358,16 +359,14 @@ app.post('/invokeFunction', async function (req, res) {
     }
 
     // check if function exists
-    var funcQuery = colFunctions.where(function (obj) {
-        return obj.functionName == req.body.funcName;
-    });
-    logger.debug(funcQuery.length);
-    if (funcQuery.length != 1) {
-        logger.debug(`already ${JSON.stringify(funcQuery)}`);
+    if (functionList.includes(funcName) == false) {
         logger.warn(`Function does not exist`);
         res.sendStatus(400);
         return;
     }
+
+    // TODO: Replantear. No se pueden ir haciendo llamadas a la DB a lo loco. Ver donde se hace esta vaina
+
     logger.debug(`object func ${JSON.stringify(funcQuery)}`);
     var runtime = funcQuery[0].runtimeName;
     logger.debug(`runtime ${runtime}`);
@@ -384,9 +383,11 @@ app.post('/invokeFunction', async function (req, res) {
         "status": 'placeholder',
         "result": ''
     }
-    var insertedCall = colCalls.insert(insert);
-    db.saveDatabase();
 
+    var sendMsg = {}
+    sendMsg.msgType = 'insertCall';
+    sendMsg.content = insert;
+    sockDB.send(JSON.stringify(sendMsg));
 
     var containerPath = runQuery[0].path;
     var runtimeRunCmd = runQuery[0].run;

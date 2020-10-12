@@ -190,7 +190,11 @@ sockRep.on('message', function(msg){
             break;
         case 'fetchFunction':
             fetchFunction(msg.content);
+            break;  
+        case 'insertCall':
+            insertCall(msg.content);
             break;
+            
         // TODO: return requests fetching info for workers. getFuncInfo, etc.
 
     }
