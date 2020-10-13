@@ -25,8 +25,8 @@ runtimePool = [];
 // Pool of available function names
 functionPool = [];
 
-// Pool of available function info
-functionStore = {};
+// Pool of available function + runtime info
+functionStoreComp = {};
 
 // winston init
 

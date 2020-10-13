@@ -364,6 +364,9 @@ app.post('/invokeFunction', async function (req, res) {
         res.sendStatus(400);
         return;
     }
+
+    // TODO: Replantear. No se pueden ir haciendo llamadas a la DB a lo loco. Ver donde se hace esta vaina
+
     logger.debug(`object func ${JSON.stringify(funcQuery)}`);
     var runtime = funcQuery[0].runtimeName;
     logger.debug(`runtime ${runtime}`);

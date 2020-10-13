@@ -29,4 +29,9 @@ La base de datos está centralizada y desacoplada de los componentes. Cada consu
 
 DONE - orquestar esta wea, ver si se pueden hacer volumenes comunes para los datos o algo así
 
-Tema de los invokes, es una liada. Resortear el tema invoke para las funciones. la politica de invocacion es parte de cada uno de los workers, no depende de la llamada per se. se guarda el call en la db (WIP) y cuando se ejecute se sobreescribe dicho call.
+Tema de los invokes, es una liada. Resortear el tema invoke para las funciones. la politica de invocacion es parte de cada uno de los workers, no depende de la llamada per se. se guarda el call en la db (WIP) y cuando se ejecute se sobreescribe dicho call. El call lo guarda la api. sobreescribe el worker. Añadir info como worker asignado.
+
+en la llamada del worker donde se solicita la info de la funcion se pide tambien el runtime. se guarda junto para su uso posterior en el worker.
+
+
+
