@@ -152,18 +152,40 @@ function insertFunction(body) {
 function fetchFunction(body){
     logger.verbose(`fetchFunction ${JSON.stringify(body)}`)
     logger.debug(`funcName ${body}`);
-    // check if function exists
+
+    // fetch the function
+
     var funcQuery = colFunctions.where(function (obj) {
         return obj.functionName == body;
     });
     // TODO: Debug funcQuery, get the results and send them back to the worker
-    logger.debug(`funcQUery ${JSON.stringify(funcQuery)}`);
+    logger.debug(`funcQuery ${JSON.stringify(funcQuery)}`);
+
+    // fetch the runtime as well
+    var runtime = funcQuery[0].runtimeName;
+    logger.debug(`runtime ${runtime}`);
+
+    // look for the runtime specs
+    var runQuery = colRuntimes.where(function (obj) {
+        return obj.image == runtime;
+    });
+    
     db.saveDatabase();
     // send back the func info
     var sendMsg = {}
     sendMsg.msgType = 'fetchedFunction';
-    sendMsg.content = funcQuery
+    sendMsg.content = {};
+    sendMsg.content.function = funcQuery[0];
+    sendMsg.content.runtime = runQuery[0];
+
     sockRep.send(JSON.stringify(sendMsg));
+}
+
+function insertCall(body){
+    logger.verbose(`insertCall ${JSON.stringify(body)}`);
+    const data = colCalls.insert(body);
+    db.saveDatabase();
+    sockRep.send('done');
 }
 
 

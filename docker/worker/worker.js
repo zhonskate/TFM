@@ -25,7 +25,7 @@ runtimePool = [];
 // Pool of available function names
 functionPool = [];
 
-// Pool of available function info
+// Pool of available function + runtime info
 functionStore = {};
 
 // winston init
@@ -120,10 +120,55 @@ function fetchFunction(funcName){
 }
 
 function storeFunction(body){
-    body = body[0];
     logger.verbose(`STORING FUNCTION ${JSON.stringify(body)}`);
     functionStore[body.functionName] = body;
-    logger.verbose(`STORE ${JSON.stringify(functionStore)}`);
+    logger.debug(`STORE ${JSON.stringify(functionStore)}`);
+
+}
+
+function invokeFunction(body){
+
+    logger.verbose(`INVOKE FUNCTION ${JSON.stringify(body)}`);
+
+    //FIXME: adecuar
+
+    // var containerPath = runQuery[0].path;
+    // var runtimeRunCmd = runQuery[0].run;
+    // var runtimeDeps = runQuery[0].dependencies;
+    // logger.debug(`object runtime ${JSON.stringify(runQuery)}`);
+    // logger.debug(`container path ${containerPath}`);
+
+    // // save the parameters to a file
+
+    // // create the folder
+    // var commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
+    // utils.executeSync(logger, commandline);
+
+    // // add an info file
+    // fileObject = {
+    //     "runtime": runtime,
+    //     "function": funcName
+    // };
+    // var commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
+    // utils.executeSync(logger, commandline);
+
+    // // create the params file
+    // var commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
+    // utils.executeSync(logger, commandline);
+
+    // // prepare the object
+
+    let callObject = {
+        "runtime":runtime,
+        "registry":`${registryIP}:${registryPort}`,
+        "callNum":callNum,
+        "funcName":funcName,
+        "containerPath":containerPath,
+        "runtimeDeps":runtimeDeps,
+        "runtimeRunCmd":runtimeRunCmd,
+        "insertedCall":insertedCall
+    }
+
 
 }
 

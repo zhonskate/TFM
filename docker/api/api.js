@@ -367,15 +367,6 @@ app.post('/invokeFunction', async function (req, res) {
 
     // TODO: Replantear. No se pueden ir haciendo llamadas a la DB a lo loco. Ver donde se hace esta vaina
 
-    logger.debug(`object func ${JSON.stringify(funcQuery)}`);
-    var runtime = funcQuery[0].runtimeName;
-    logger.debug(`runtime ${runtime}`);
-
-    // look for the runtime specs
-    var runQuery = colRuntimes.where(function (obj) {
-        return obj.image == runtime;
-    });
-
     insert = {
         "funcName": req.body.funcName,
         "params": req.body.params,
@@ -389,47 +380,12 @@ app.post('/invokeFunction', async function (req, res) {
     sendMsg.content = insert;
     sockDB.send(JSON.stringify(sendMsg));
 
-    var containerPath = runQuery[0].path;
-    var runtimeRunCmd = runQuery[0].run;
-    var runtimeDeps = runQuery[0].dependencies;
-    logger.debug(`object runtime ${JSON.stringify(runQuery)}`);
-    logger.debug(`container path ${containerPath}`);
-
-    // save the parameters to a file
-
-    // create the folder
-    var commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
-    utils.executeSync(logger, commandline);
-
-    // add an info file
-    fileObject = {
-        "runtime": runtime,
-        "function": funcName
-    };
-    var commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
-    utils.executeSync(logger, commandline);
-
-    // create the params file
-    var commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
-    utils.executeSync(logger, commandline);
-
-    // prepare the object
-
-    let callObject = {
-        "runtime":runtime,
-        "registry":`${registryIP}:${registryPort}`,
-        "callNum":callNum,
-        "funcName":funcName,
-        "containerPath":containerPath,
-        "runtimeDeps":runtimeDeps,
-        "runtimeRunCmd":runtimeRunCmd,
-        "insertedCall":insertedCall
-    }
-
-    callQueue.push(callObject);
+    //callQueue.push(callObject);
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(callQueue);
-
+    
+    transmitCall(callNum);
+    
 
     // TODO: SPLIT the method here and sort out the invocation policies.
 
@@ -475,6 +431,8 @@ sockRep.on("message",function(msg){
 
 sockDB.on("message",function(msg){
 
+    // handle these responses better
+
     logger.info(`SOCKDB ${msg}`);
 
 });
@@ -492,6 +450,14 @@ function transmitFunction(func){
     logger.verbose(`TRANSMITTING FUNCTION ${func}`);
 
     sockPub.send(`FUNCTION///${func}`);
+
+}
+
+function transmitCall(call){
+
+    logger.verbose(`TRANSMITTING CALL ${call}`);
+
+    sockPub.send(`INVOKE///${call}`);
 
 }
 
