@@ -188,6 +188,24 @@ function insertCall(body){
     sockRep.send('done');
 }
 
+function fetchCall(body){
+    logger.verbose(`fetchCall ${JSON.stringify(body)}`)
+
+    // fetch the call
+
+    var callQuery = colCalls.where(function (obj) {
+        return obj.callNum == body;
+    });
+
+    db.saveDatabase();
+    // send back the call info
+    var sendMsg = {}
+    sendMsg.msgType = 'fetchedCall';
+    sendMsg.content = callQuery[0];
+
+    sockRep.send(JSON.stringify(sendMsg));
+}
+
 
 var sockRep = zmq.socket('rep');
 const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
@@ -215,6 +233,9 @@ sockRep.on('message', function(msg){
             break;  
         case 'insertCall':
             insertCall(msg.content);
+            break;
+        case 'fetchCall':
+            fetchCall(msg.content);
             break;
             
         // TODO: return requests fetching info for workers. getFuncInfo, etc.

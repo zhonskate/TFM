@@ -34,4 +34,8 @@ Tema de los invokes, es una liada. Resortear el tema invoke para las funciones. 
 en la llamada del worker donde se solicita la info de la funcion se pide tambien el runtime. se guarda junto para su uso posterior en el worker.
 
 
+15-10
 
+Queda por hacer la llamada al invoke desde el worker. Arreglar eso, ya que el objeto del Call está como toca. Hay que ver como se hace el polling para las invocaciones. Esto depende de las políticas, pero hay que hacer ahora algo rápido y mal para dejarlo funcional por lo menos. 
+
+Otro tema es si la DB debería tener una API. está bien la asincronía, pero se necesita algún tipo de llamada bloqueante para devolver la info sobre las calls por ejemplo.

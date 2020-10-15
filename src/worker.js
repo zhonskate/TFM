@@ -2,6 +2,7 @@ var zmq = require('zeromq');
 var fs = require('fs');
 const logger = require('winston');
 var invoke = require('./invoke');
+var utils = require('./utils');
 var registryIP = 'localhost';
 var registryPort = '5000';
 const { PerformanceObserver, performance } = require('perf_hooks');
@@ -20,13 +21,16 @@ const CALLS_PATH = 'calls';
 // Data structures
 
 // Pool of available runtime names
-runtimePool = [];
+var runtimePool = [];
 
 // Pool of available function names
-functionPool = [];
+var functionPool = [];
+
+// Queue of calls
+var callQueue = [];
 
 // Pool of available function + runtime info
-functionStore = {};
+var functionStore = {};
 
 // winston init
 
@@ -84,7 +88,7 @@ sockSub.on('message', function(msg){
             processFunction(arrayMsg);
             break;
         case 'INVOKE':
-            invokeFunction(arrayMsg);
+            processCall(arrayMsg);
             break;
     }
 
@@ -121,54 +125,80 @@ function fetchFunction(funcName){
 
 function storeFunction(body){
     logger.verbose(`STORING FUNCTION ${JSON.stringify(body)}`);
-    functionStore[body.functionName] = body;
+    functionStore[body.function.functionName] = body;
     logger.debug(`STORE ${JSON.stringify(functionStore)}`);
 
 }
 
-function invokeFunction(body){
+function processCall(arrayMsg){
 
-    logger.verbose(`INVOKE FUNCTION ${JSON.stringify(body)}`);
+    callNum = arrayMsg[1]
+    logger.verbose(`INVOKE ${callNum}`);
 
     //FIXME: adecuar
 
-    // var containerPath = runQuery[0].path;
-    // var runtimeRunCmd = runQuery[0].run;
-    // var runtimeDeps = runQuery[0].dependencies;
-    // logger.debug(`object runtime ${JSON.stringify(runQuery)}`);
-    // logger.debug(`container path ${containerPath}`);
+    // get the call info
 
-    // // save the parameters to a file
+    var sendMsg = {}
+    sendMsg.msgType = 'fetchCall';
+    sendMsg.content = callNum;
+    sockDB.send(JSON.stringify(sendMsg));
 
-    // // create the folder
-    // var commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
-    // utils.executeSync(logger, commandline);
+}
 
-    // // add an info file
-    // fileObject = {
-    //     "runtime": runtime,
-    //     "function": funcName
-    // };
-    // var commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
-    // utils.executeSync(logger, commandline);
+function enqueueCall(body){
+    logger.verbose(`ENQUEUING CALL ${JSON.stringify(body)}`);
+    
+    const callNum = body.callNum;
+    const funcName = body.funcName;
+    const params = body.params;
 
-    // // create the params file
-    // var commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
-    // utils.executeSync(logger, commandline);
+    logger.debug(`eC funcName ${funcName}`);
 
-    // // prepare the object
+    const functionObj = functionStore[funcName].function;
+    const runtimeObj = functionStore[funcName].runtime;
+
+    const containerPath = runtimeObj.path;
+    const runtimeRunCmd = runtimeObj.run;
+    const runtimeDeps = runtimeObj.dependencies;
+    logger.debug(`object runtime ${JSON.stringify(runtimeObj)}`);
+    logger.debug(`container path ${containerPath}`);
+
+    // save the parameters to a file
+
+    // create the folder
+    let commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
+    utils.executeSync(logger, commandline);
+
+    // add an info file
+    let fileObject = {
+        "runtime": functionObj.runtimeName,
+        "function": funcName
+    };
+
+    commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
+    utils.executeSync(logger, commandline);
+
+    // create the params file
+    commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
+    utils.executeSync(logger, commandline);
+
+    // prepare the object
 
     let callObject = {
-        "runtime":runtime,
+        "runtime":functionObj.runtimeName,
         "registry":`${registryIP}:${registryPort}`,
         "callNum":callNum,
         "funcName":funcName,
         "containerPath":containerPath,
         "runtimeDeps":runtimeDeps,
         "runtimeRunCmd":runtimeRunCmd,
-        "insertedCall":insertedCall
+        "insertedCall":body
     }
 
+    callQueue.push(callObject);
+    logger.debug('PUSHED TO CALLQUEUE');
+    logger.debug(JSON.stringify(callQueue));
 
 }
 
@@ -188,6 +218,9 @@ sockDB.on('message', function(msg){
     switch (msg.msgType) {
         case 'fetchedFunction':
             storeFunction(msg.content);
+            break;
+        case 'fetchedCall':
+            enqueueCall(msg.content);
             break;
     }
     //TODO: get the func info.

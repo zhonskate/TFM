@@ -100,7 +100,6 @@ logger.info(`ZMQ DB ON ${addressDB}`);
 // FIXME: Cambiarlo por algo con sentido
 // var callNum = Math.floor(Math.random() * 10000);
 var callNum = 0;
-var callQueue = [];
 var runtimeList = [];
 var functionList = [];
 
@@ -143,8 +142,7 @@ app.get('/functions', function (req, res) {
     // Montar un express en DB y redirigir
 
     logger.info(`GET FUNCTIONS`);
-    sol = dbDriver.getAllFunctions();
-    res.send(sol);
+    res.send(functionList);
 
 });
 
@@ -154,8 +152,7 @@ app.get('/functions', function (req, res) {
 app.get('/runtimes', function (req, res) {
 
     logger.info(`GET RUNTIMES`);
-    sol = dbDriver.getAllRuntimes();
-    res.send(sol);
+    res.send(runtimeList);
 
 });
 
@@ -379,10 +376,6 @@ app.post('/invokeFunction', async function (req, res) {
     sendMsg.msgType = 'insertCall';
     sendMsg.content = insert;
     sockDB.send(JSON.stringify(sendMsg));
-
-    //callQueue.push(callObject);
-    logger.debug('PUSHED TO CALLQUEUE');
-    logger.debug(callQueue);
     
     transmitCall(callNum);
     
