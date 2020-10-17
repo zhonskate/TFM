@@ -17,3 +17,9 @@ docker rm -f faas-worker
 echo 'removing network...'
 
 docker network rm faas
+
+echo 'removing volumes...'
+
+docker volume rm log-vol
+
+docker volume rm uploads-vol

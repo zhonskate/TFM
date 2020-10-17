@@ -128,6 +128,19 @@ function storeFunction(body){
     functionStore[body.function.functionName] = body;
     logger.debug(`STORE ${JSON.stringify(functionStore)}`);
 
+    // FIXME: que esto funcione con docker distribuido (diversos docker daemons) lel
+
+    // var folderName = body.function.runtimeName + '/' + body.function.functionName;
+    // logger.debug(`function Name ${folderName}`)
+
+    // // Create a folder to hold the function contents
+    // var commandline = `mkdir -p uploads/${body.function.runtimeName}`
+    // utils.executeSync(logger, commandline);
+
+    // // extract the file on the newly created folder
+    // var commandline = `docker cp faas-api:/ws/uploads/${folderName} /ws/uploads/uploads/${body.function.runtimeName}`
+    // utils.executeSync(logger, commandline);
+
 }
 
 function processCall(arrayMsg){
@@ -199,6 +212,16 @@ function enqueueCall(body){
     callQueue.push(callObject);
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
+
+    // FIXME: Esto no tiene que ir aqui. cambiar.
+
+    // docker in docker issue.
+    invoke.preloadNothing(logger, callObject, CALLS_PATH)
+        .then((insertedCall) => {
+            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+            logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
+            // Updatear la DB
+        });
 
 }
 

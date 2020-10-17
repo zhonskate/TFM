@@ -1,7 +1,17 @@
 var utils = require('./utils');
 const fs = require('fs');
 
-function preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH) {
+function preloadNothing(logger, callObject, CALLS_PATH) {
+
+    let runtime = callObject.runtime;
+    let registryIP = callObject.registry.split(':')[0];    
+    let registryPort = callObject.registry.split(':')[1];    
+    let callNum = callObject.callNum;
+    let funcName = callObject.funcName;
+    let containerPath = callObject.containerPath;
+    let runtimeDeps = callObject.runtimeDeps;
+    let runtimeRunCmd = callObject.runtimeRunCmd;
+    let insertedCall = callObject.insertedCall;
 
     logger.info(`PRELOAD NOTHING`);
 

@@ -39,3 +39,7 @@ en la llamada del worker donde se solicita la info de la funcion se pide tambien
 Queda por hacer la llamada al invoke desde el worker. Arreglar eso, ya que el objeto del Call está como toca. Hay que ver como se hace el polling para las invocaciones. Esto depende de las políticas, pero hay que hacer ahora algo rápido y mal para dejarlo funcional por lo menos. 
 
 Otro tema es si la DB debería tener una API. está bien la asincronía, pero se necesita algún tipo de llamada bloqueante para devolver la info sobre las calls por ejemplo.
+
+17-10
+
+Ayayayayay. Los uploads se tienen que mandar al sitio correspondiente para que los workers puedan invocar funciones. voy a intentar hacerlo con volumenes a ver como se queda, pero no tengo mucha fe. Más que nada porque pierdo la posibilidad de distribuirlo(?). Quizás lo debería hacer a través de zmq. nah va a ser con cps creo, un bindeo de la api y cps de bash.
