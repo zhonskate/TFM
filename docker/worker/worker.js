@@ -219,8 +219,13 @@ function enqueueCall(body){
     invoke.preloadNothing(logger, callObject, CALLS_PATH)
         .then((insertedCall) => {
             logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-            logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
             // Updatear la DB
+
+            var sendMsg = {}
+            sendMsg.msgType = 'updateCall';
+            sendMsg.content = insertedCall;
+            sockDB.send(JSON.stringify(sendMsg));
+
         });
 
 }
@@ -244,6 +249,8 @@ sockDB.on('message', function(msg){
             break;
         case 'fetchedCall':
             enqueueCall(msg.content);
+            break;
+        case 'callInserted':
             break;
     }
     //TODO: get the func info.

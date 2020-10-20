@@ -63,7 +63,7 @@ function preloadNothing(logger, callObject, CALLS_PATH) {
 
     }).then(() => {
 
-        //utils.forceDeleteContainer(logger, containerName);
+        utils.forceDeleteContainer(logger, containerName);
 
         // add output to DB
         let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);

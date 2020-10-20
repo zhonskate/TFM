@@ -102,6 +102,7 @@ logger.info(`ZMQ DB ON ${addressDB}`);
 var callNum = 0;
 var runtimeList = [];
 var functionList = [];
+var callStore = {};
 
 //----------------------------------------------------------------------------------//
 // Upload-related code
@@ -162,8 +163,15 @@ app.get('/runtimes', function (req, res) {
 app.get('/calls', function (req, res) {
     
     logger.info(`GET CALLS`);
-    sol = dbDriver.getAllCalls();
-    res.send(sol);
+    res.send(JSON.stringify(callStore));
+
+});
+
+app.get('/call/:callNum', function (req, res) {
+    
+    logger.info(`GET CALL ${req.params.callNum}`);
+
+    res.send(JSON.stringify(callStore['c' + req.params.callNum]));
 
 });
 
@@ -368,7 +376,7 @@ app.post('/invokeFunction', async function (req, res) {
         "funcName": req.body.funcName,
         "params": req.body.params,
         "callNum": callNum,
-        "status": 'placeholder',
+        "status": 'PENDING',
         "result": ''
     }
 
@@ -378,6 +386,12 @@ app.post('/invokeFunction', async function (req, res) {
     sockDB.send(JSON.stringify(sendMsg));
     
     transmitCall(callNum);
+
+    index = 'c' + callNum;
+
+    callStore[index] = insert;
+
+    logger.debug(`callstore ${JSON.stringify(callStore)}`);
     
 
     // TODO: SPLIT the method here and sort out the invocation policies.

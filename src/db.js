@@ -208,7 +208,7 @@ function fetchCall(body){
 
 function updateCall(body){
     // TODO: completar
-    console.info('FIXME');
+    logger.info('FIXME');
 }
 
 

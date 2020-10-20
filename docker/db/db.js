@@ -206,6 +206,11 @@ function fetchCall(body){
     sockRep.send(JSON.stringify(sendMsg));
 }
 
+function updateCall(body){
+    // TODO: completar
+    logger.info('FIXME');
+}
+
 
 var sockRep = zmq.socket('rep');
 const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
@@ -236,6 +241,9 @@ sockRep.on('message', function(msg){
             break;
         case 'fetchCall':
             fetchCall(msg.content);
+            break;
+        case 'updateCall':
+            updateCall(msg.content);
             break;
             
         // TODO: return requests fetching info for workers. getFuncInfo, etc.

@@ -35,3 +35,8 @@ echo -e ''
 curl localhost:3000/calls
 echo -e ''
 
+# check specific call
+
+curl localhost:3000/call/1
+echo -e ''
+
