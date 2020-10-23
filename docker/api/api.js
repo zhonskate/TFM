@@ -427,12 +427,29 @@ myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcN
     }
 });
 
+function updateCall(body){
+    // TODO: completar
+    index = 'c' + body.callNum;
+
+    callStore[index] = body;
+
+    logger.debug(`callstore ${JSON.stringify(callStore)}`);
+    sockRep.send('call updated on API');
+}
+
 // ZMQ
 
 sockRep.on("message",function(msg){
 
-    logger.info(`SOCKREP ${msg}`);
-    sockRep.send('world');
+    logger.verbose(`SOCKREP ${msg}`)
+
+    msg = JSON.parse(msg);
+
+    switch (msg.msgType) {
+        case 'updateCall':
+            updateCall(msg.content);
+            break;
+    }
 
 });
 

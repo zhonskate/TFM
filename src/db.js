@@ -208,7 +208,22 @@ function fetchCall(body){
 
 function updateCall(body){
     // TODO: completar
-    logger.info('FIXME');
+    let existingRecord = colCalls.chain().find({'callNum': body.callNum}).update(function(obj) {
+        obj.status = body.status;
+        obj.result = body.result;
+      });
+
+    if (!existingRecord){
+      logger.error('Tried to update an empty call');
+      return;
+    }
+
+    db.saveDatabase();
+    logger.debug(`EXISTING ${JSON.stringify(colCalls)}`);  
+
+    var sendMsg = {}
+    sendMsg.msgType = 'insertedCall';
+    sockRep.send(JSON.stringify(sendMsg));
 }
 
 

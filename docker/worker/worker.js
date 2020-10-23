@@ -226,6 +226,8 @@ function enqueueCall(body){
             sendMsg.content = insertedCall;
             sockDB.send(JSON.stringify(sendMsg));
 
+            sockReq.send(JSON.stringify(sendMsg));
+
         });
 
 }
@@ -256,4 +258,4 @@ sockDB.on('message', function(msg){
     //TODO: get the func info.
 });
 
-sockReq.send("worker1");
+//sockReq.send("worker1");
