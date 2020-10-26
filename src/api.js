@@ -5,7 +5,6 @@ const bodyParser = require('body-parser')
 var logger = require('winston');
 var multer = require('multer');
 var cors = require('cors');
-var Loki = require('lokijs');
 var del = require('del');
 const {
     execSync
@@ -48,20 +47,14 @@ logger.log('info', '2: info');
 logger.log('warn', '1: warn');
 logger.log('error', '0: error'); */
 
-// DB-RELATED DECLARATIONS
+// multer configuration
 
-const DB_NAME = 'db.json';
-const COLLECTION_FUNCTIONS = 'functions';
-const COLLECTION_RUNTIMES = 'runtimes';
-const COLLECTION_CALLS = 'calls';
 const UPLOAD_PATH = 'uploads';
 const CALLS_PATH = 'calls';
 const upload = multer({
     dest: `${UPLOAD_PATH}/`
-}); // multer configuration
-const db = new Loki(`${UPLOAD_PATH}/${DB_NAME}`, {
-    persistenceMethod: 'fs'
 });
+
 
 // EXPRESS CONF
 
@@ -74,7 +67,6 @@ app.use(bodyParser.json())
 const port = 3000
 var registryIP = 'localhost';
 var registryPort = '5000';
-var colFunctions, colCalls, colRuntimes;
 const INVOKE_MODE = 'PRELOAD_NOTHING';
 const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
 const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
@@ -107,17 +99,6 @@ var callStore = {};
 //----------------------------------------------------------------------------------//
 // Upload-related code
 
-const loadCollection = function (colName, db) {
-    return new Promise(resolve => {
-        db.loadDatabase({}, () => {
-            const _collection = db.getCollection(colName) || db.addCollection(colName, {
-                autoupdate: true
-            });
-            resolve(_collection);
-        })
-    });
-}
-
 const cleanFolder = function (folderPath) {
     // delete files inside folder but not the folder itself
     del.sync([`${folderPath}/**`, `!${folderPath}`]);
@@ -126,16 +107,7 @@ const cleanFolder = function (folderPath) {
 cleanFolder(UPLOAD_PATH);
 cleanFolder(CALLS_PATH);
 
-// TODO: DATABASE SAVING NOT WORKING
-async function loadDBs() {
-    colFunctions = await loadCollection(COLLECTION_FUNCTIONS, db);
-    colRuntimes = await loadCollection(COLLECTION_RUNTIMES, db);
-    colCalls = await loadCollection(COLLECTION_CALLS, db);
-}
 
-loadDBs().then(() => {
-    logger.info('DBs loaded')
-})
 // GET FUNCTIONS
 
 app.get('/functions', function (req, res) {
@@ -408,24 +380,24 @@ app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${
 
 // EVENT HANDLING
 
-myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall) {
-    switch (INVOKE_MODE) {
-        case 'PRELOAD_NOTHING':
-            invoke.preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH)
-            .then((insertedCall) => {
-                logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-                logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
-                colCalls.update(insertedCall);
-            });
-            break;
-        case 'PRELOAD_RUNTIME':
-            invoke.preloadRuntime();
-            break;
-        case 'PRELOAD_FUNCTION':
-            invoke.preloadFunction()
-            break;
-    }
-});
+// myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall) {
+//     switch (INVOKE_MODE) {
+//         case 'PRELOAD_NOTHING':
+//             invoke.preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH)
+//             .then((insertedCall) => {
+//                 logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+//                 logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
+//                 colCalls.update(insertedCall);
+//             });
+//             break;
+//         case 'PRELOAD_RUNTIME':
+//             invoke.preloadRuntime();
+//             break;
+//         case 'PRELOAD_FUNCTION':
+//             invoke.preloadFunction()
+//             break;
+//     }
+// });
 
 function updateCall(body){
     // TODO: falta pulir pero está cool
