@@ -1,7 +1,7 @@
 var utils = require('./utils');
 const fs = require('fs');
 
-function preloadNothing(logger, callObject, CALLS_PATH) {
+async function preloadNothing(logger, callObject, CALLS_PATH) {
 
     let runtime = callObject.runtime;
     let registryIP = callObject.registry.split(':')[0];    
@@ -25,58 +25,45 @@ function preloadNothing(logger, callObject, CALLS_PATH) {
 
     var containerName = `${callNum}-${runtime}`;
 
-    return utils.createContainer(logger, runtime, registryIP, registryPort, callNum)
-    .then(() => {
+    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum)
 
-        // TODO: copy data
-        // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
+    // TODO: copy data
+    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
 
-        utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
-        
-    }).then(() => {
+    await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
+    
+    // TODO: call the function on the runtime image. read the parameters and pass them to the func.
 
-        // TODO: call the function on the runtime image. read the parameters and pass them to the func.
+    await utils.startContainer(logger, containerName);
 
-        utils.startContainer(logger, containerName);
+    // Install the dependencies
 
-    }).then(() => {
+    await utils.runDockerCommand(logger, containerName, runtimeDeps);
 
-        // Install the dependencies
+    // pass the arguments to the running function
 
-        utils.runDockerCommand(logger, containerName, runtimeDeps);
+    await utils.copyInput(logger, containerName, containerPath, callNum);
 
-        // pass the arguments to the running function
+    // exec the function
 
-        utils.copyInput(logger, containerName, containerPath, callNum);
+    await utils.runDockerCommand(logger, containerName, runtimeRunCmd);
 
-    }).then(() => {
+    // fetch the output
 
-        // exec the function
+    await utils.fetchOutput(logger, containerName, containerPath, callNum);
 
-        utils.runDockerCommand(logger, containerName, runtimeRunCmd);
+    utils.forceDeleteContainer(logger, containerName);
 
-    }).then(() => {
+    // add output to DB
+    let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);
+    let result = JSON.parse(rawdata);
 
-        // fetch the output
+    logger.verbose(`RESULT ${result.output}`);
 
-        utils.fetchOutput(logger, containerName, containerPath, callNum);
+    insertedCall.status = 'DONE';
+    insertedCall.result = result.output;
 
-    }).then(() => {
-
-        utils.forceDeleteContainer(logger, containerName);
-
-        // add output to DB
-        let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);
-        let result = JSON.parse(rawdata);
-
-        logger.verbose(`RESULT ${result.output}`);
-
-        insertedCall.status = 'DONE';
-        insertedCall.result = result.output;
-
-        return insertedCall;
-
-    });
+    return insertedCall;
 
 }
 

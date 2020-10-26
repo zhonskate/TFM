@@ -3,7 +3,26 @@ const {
     exec
 } = require('child_process');
 
-async function executeSync(logger, commandline) {
+function execute(logger, cmd) {
+
+    logger.verbose(`EXECUTE ${cmd}`);
+
+    return new Promise((resolve, reject) => {
+        exec(cmd, (error, stdout, stderr) => {
+            if (stderr) {
+                logger.log('error', stderr);
+            }
+    
+            if (error !== null) {
+                logger.log('error', error);
+                return new Error([error]);
+            }
+            resolve(stdout ? stdout : stderr);
+        });
+    });
+}
+
+function executeSync(logger, commandline) {
 
     logger.verbose(`EXECUTE SYNC ${commandline}`);
 
@@ -15,26 +34,7 @@ async function executeSync(logger, commandline) {
 
         if (error !== null) {
             logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
-        }
-    });
-}
-
-function execute(logger, commandline) {
-
-    logger.verbose(`EXECUTE SYNC ${commandline}`);
-
-    exec(commandline, function (error, stdout, stderr) {
-
-        if (stderr) {
-            logger.log('error', stderr);
-        }
-
-        if (error !== null) {
-            logger.log('error', error);
-            res.send(error);
-            return next(new Error([error]));
+            return new Error([error]);
         }
     });
 }
@@ -48,7 +48,7 @@ async function createContainer(logger, runtime, registryIP, registryPort, callNu
         -t \
         ${registryIP}:${registryPort}/${runtime}`
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 async function copyFunction(logger, runtime, funcName, containerName, containerPath) {
@@ -59,7 +59,7 @@ async function copyFunction(logger, runtime, funcName, containerName, containerP
         ${__dirname}/uploads/${runtime}/${funcName}/. \
         ${containerName}:${containerPath}`
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 async function startContainer(logger, containerName) {
@@ -68,7 +68,7 @@ async function startContainer(logger, containerName) {
 
     var commandline = `docker start ${containerName}`;
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 async function copyInput(logger, containerName, containerPath, callNum) {
@@ -79,7 +79,7 @@ async function copyInput(logger, containerName, containerPath, callNum) {
         ${__dirname}/calls/${callNum}/input.json \
         ${containerName}:${containerPath}`
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 async function fetchOutput(logger, containerName, containerPath, callNum) {
@@ -90,7 +90,7 @@ async function fetchOutput(logger, containerName, containerPath, callNum) {
         ${containerName}:${containerPath}/output.json \
         ${__dirname}/calls/${callNum}`
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 function stopContainer(logger, containerName) {
@@ -129,7 +129,7 @@ async function runDockerCommand(logger, containerName, command) {
         ${containerName} \
         ${command}`
 
-    executeSync(logger, commandline);
+    await execute(logger, commandline);
 }
 
 function validName(logger, name) {
