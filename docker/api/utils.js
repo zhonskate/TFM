@@ -12,7 +12,7 @@ function execute(logger, cmd) {
             if (stderr) {
                 logger.log('error', stderr);
             }
-    
+
             if (error !== null) {
                 logger.log('error', error);
                 return new Error([error]);

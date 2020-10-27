@@ -305,7 +305,7 @@ function liberateSpot(spot) {
     freeSpots.push(spot);
     spots['spot' + spot] = {};
 
-    logger.info(`SPOTS ${JSON.stringifSy(spots)} free ${freeSpots}`);
+    logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
     checkSpots();
 

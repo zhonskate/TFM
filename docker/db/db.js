@@ -133,23 +133,23 @@ function checkRuntimePresent() {
         return true;
     }
     return false;
-} 
+}
 
 function insertRuntime(body) {
     logger.verbose(`insertRuntime ${JSON.stringify(body)}`)
     const data = colRuntimes.insert(body);
     db.saveDatabase();
     sockRep.send('done');
-} 
+}
 
 function insertFunction(body) {
     logger.verbose(`insertFunction ${JSON.stringify(body)}`)
     const data = colFunctions.insert(body);
     db.saveDatabase();
     sockRep.send('done');
-} 
+}
 
-function fetchFunction(body){
+function fetchFunction(body) {
     logger.verbose(`fetchFunction ${JSON.stringify(body)}`)
     logger.debug(`funcName ${body}`);
 
@@ -169,7 +169,7 @@ function fetchFunction(body){
     var runQuery = colRuntimes.where(function (obj) {
         return obj.image == runtime;
     });
-    
+
     db.saveDatabase();
     // send back the func info
     var sendMsg = {}
@@ -181,14 +181,14 @@ function fetchFunction(body){
     sockRep.send(JSON.stringify(sendMsg));
 }
 
-function insertCall(body){
+function insertCall(body) {
     logger.verbose(`insertCall ${JSON.stringify(body)}`);
     const data = colCalls.insert(body);
     db.saveDatabase();
     sockRep.send('done');
 }
 
-function fetchCall(body){
+function fetchCall(body) {
     logger.verbose(`fetchCall ${JSON.stringify(body)}`)
 
     // fetch the call
@@ -206,20 +206,22 @@ function fetchCall(body){
     sockRep.send(JSON.stringify(sendMsg));
 }
 
-function updateCall(body){
+function updateCall(body) {
     // TODO: completar
-    let existingRecord = colCalls.chain().find({'callNum': body.callNum}).update(function(obj) {
+    let existingRecord = colCalls.chain().find({
+        'callNum': body.callNum
+    }).update(function (obj) {
         obj.status = body.status;
         obj.result = body.result;
-      });
+    });
 
-    if (!existingRecord){
-      logger.error('Tried to update an empty call');
-      return;
+    if (!existingRecord) {
+        logger.error('Tried to update an empty call');
+        return;
     }
 
     db.saveDatabase();
-    logger.debug(`EXISTING ${JSON.stringify(colCalls)}`);  
+    logger.debug(`EXISTING ${JSON.stringify(colCalls)}`);
 
     var sendMsg = {}
     sendMsg.msgType = 'insertedCall';
@@ -232,7 +234,7 @@ const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
 sockRep.bind(addressReq);
 logger.info(`DB Req binded to ${addressReq}`);
 
-sockRep.on('message', function(msg){
+sockRep.on('message', function (msg) {
 
     logger.verbose(`SOCKREP ${msg}`)
 
@@ -250,7 +252,7 @@ sockRep.on('message', function(msg){
             break;
         case 'fetchFunction':
             fetchFunction(msg.content);
-            break;  
+            break;
         case 'insertCall':
             insertCall(msg.content);
             break;
@@ -260,8 +262,8 @@ sockRep.on('message', function(msg){
         case 'updateCall':
             updateCall(msg.content);
             break;
-            
-        // TODO: return requests fetching info for workers. getFuncInfo, etc.
+
+            // TODO: return requests fetching info for workers. getFuncInfo, etc.
 
     }
 });

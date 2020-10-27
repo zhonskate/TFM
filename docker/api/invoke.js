@@ -4,8 +4,8 @@ const fs = require('fs');
 async function preloadNothing(logger, callObject, CALLS_PATH) {
 
     let runtime = callObject.runtime;
-    let registryIP = callObject.registry.split(':')[0];    
-    let registryPort = callObject.registry.split(':')[1];    
+    let registryIP = callObject.registry.split(':')[0];
+    let registryPort = callObject.registry.split(':')[1];
     let callNum = callObject.callNum;
     let funcName = callObject.funcName;
     let containerPath = callObject.containerPath;
@@ -31,7 +31,7 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
 
     await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
-    
+
     // TODO: call the function on the runtime image. read the parameters and pass them to the func.
 
     await utils.startContainer(logger, containerName);

@@ -229,7 +229,7 @@ function prepareCall(body) {
 
 }
 
-function enqueueCall (callObject){
+function enqueueCall(callObject) {
 
     callQueue.push(callObject);
     logger.debug('PUSHED TO CALLQUEUE');
@@ -239,11 +239,11 @@ function enqueueCall (callObject){
 
 }
 
-function checkSpots(){
+function checkSpots() {
 
     // check if there are calls in the queue
 
-    if (callQueue.length == 0){
+    if (callQueue.length == 0) {
         logger.verbose('Call queue empty');
         return;
     }
@@ -252,7 +252,7 @@ function checkSpots(){
 
     // FIXME: Revisar esto. En un futuro va a depender de las preloads, etc. Harán falta mas data structures.
 
-    if (freeSpots.length == 0){
+    if (freeSpots.length == 0) {
         logger.verbose('No available spots');
         return;
     }
@@ -273,33 +273,33 @@ function checkSpots(){
 
 }
 
-function executeFunction(callObject, spot){
+function executeFunction(callObject, spot) {
 
     logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
 
     // invokation depends on policy
 
     invoke.preloadNothing(logger, callObject, CALLS_PATH)
-    .then((insertedCall) => {
-        logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-        // Updatear la DB
+        .then((insertedCall) => {
+            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+            // Updatear la DB
 
-        var sendMsg = {}
-        sendMsg.msgType = 'updateCall';
-        sendMsg.content = insertedCall;
-        sockDB.send(JSON.stringify(sendMsg));
+            var sendMsg = {}
+            sendMsg.msgType = 'updateCall';
+            sendMsg.content = insertedCall;
+            sockDB.send(JSON.stringify(sendMsg));
 
-        // avisar a la API
+            // avisar a la API
 
-        sockReq.send(JSON.stringify(sendMsg));
+            sockReq.send(JSON.stringify(sendMsg));
 
-        liberateSpot(spot);
+            liberateSpot(spot);
 
-    });
+        });
 
 }
 
-function liberateSpot(spot){
+function liberateSpot(spot) {
 
     logger.verbose(`Liberating spot ${spot}`);
     freeSpots.push(spot);
@@ -308,7 +308,7 @@ function liberateSpot(spot){
     logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
     checkSpots();
-    
+
 }
 
 // TODO: pool for available rts and functions. Auto management of each pool
