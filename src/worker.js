@@ -164,7 +164,7 @@ function processCall(arrayMsg) {
     callNum = arrayMsg[1]
     logger.verbose(`INVOKE ${callNum}`);
 
-    //FIXME: adecuar
+    //FIXME: adecuar. quizas tiene sentido que llegue de una desde la API.
 
     // get the call info
 
@@ -176,7 +176,11 @@ function processCall(arrayMsg) {
 }
 
 function prepareCall(body) {
-    logger.verbose(`ENQUEUING CALL ${JSON.stringify(body)}`);
+
+    var timing = new Date().getTime();
+    body.timing.worker = timing;
+
+    logger.verbose(`PREPARING CALL ${JSON.stringify(body)}`);
 
     const callNum = body.callNum;
     const funcName = body.funcName;
@@ -274,6 +278,9 @@ function checkSpots() {
 }
 
 function executeFunction(callObject, spot) {
+
+    var timing = new Date().getTime();
+    callObject.insertedCall.timing.execute = timing;
 
     logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
 

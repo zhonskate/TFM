@@ -318,6 +318,8 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
 app.post('/invokeFunction', async function (req, res) {
 
+    var timing = new Date().getTime();
+
     callNum = callNum + 1;
 
     // TODO: Segmentate method.
@@ -347,7 +349,10 @@ app.post('/invokeFunction', async function (req, res) {
         "params": req.body.params,
         "callNum": callNum,
         "status": 'PENDING',
-        "result": ''
+        "result": '',
+        "timing": {
+            "api": timing
+        }
     }
 
     var sendMsg = {}
@@ -359,7 +364,12 @@ app.post('/invokeFunction', async function (req, res) {
 
     index = 'c' + callNum;
 
-    callStore[index] = insert;
+    callStore[index] = {};
+
+    callStore[index].callNum = insert.callNum;
+    callStore[index].status = insert.status;
+    callStore[index].result = insert.result;
+    callStore[index].timing = insert.timing;
 
     logger.debug(`callstore ${JSON.stringify(callStore)}`);
 
@@ -399,12 +409,36 @@ app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${
 
 function updateCall(body) {
     // TODO: falta pulir pero está cool
+
+    var timing = new Date().getTime();
+    body.timing.result = timing;
+
     index = 'c' + body.callNum;
 
-    callStore[index] = body;
+    callStore[index].status = body.status;
+    callStore[index].result = body.result;
+    callStore[index].timing = body.timing;
+
+    fixTiming(index);
 
     logger.debug(`callstore ${JSON.stringify(callStore)}`);
     sockRep.send('call updated on API');
+}
+
+function fixTiming(index) {
+
+    var times = callStore[index].timing;
+    var base = times.api;
+    var newtimes = {};
+    newtimes.api = 0;
+    newtimes.worker = times.worker - base;
+    newtimes.execute = times.execute - base;
+    newtimes.runtime = times.runtime - base;
+    newtimes.function = times.function-base;
+    newtimes.result = times.result - base;
+
+    callStore[index].timing = newtimes;
+
 }
 
 // ZMQ

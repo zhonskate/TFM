@@ -25,10 +25,13 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
 
     var containerName = `${callNum}-${runtime}`;
 
-    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum)
+    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
 
     // TODO: copy data
     // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
+
+    var timing = new Date().getTime();
+    callObject.insertedCall.timing.runtime = timing;
 
     await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
 
@@ -36,9 +39,13 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
 
     await utils.startContainer(logger, containerName);
 
+
     // Install the dependencies
 
     await utils.runDockerCommand(logger, containerName, runtimeDeps);
+
+    timing = new Date().getTime();
+    callObject.insertedCall.timing.function = timing;
 
     // pass the arguments to the running function
 
