@@ -133,14 +133,14 @@ app.get('/runtimes', function (req, res) {
 // GET CALLS
 
 app.get('/calls', function (req, res) {
-    
+
     logger.info(`GET CALLS`);
     res.send(JSON.stringify(callStore));
 
 });
 
 app.get('/call/:callNum', function (req, res) {
-    
+
     logger.info(`GET CALL ${req.params.callNum}`);
 
     res.send(JSON.stringify(callStore['c' + req.params.callNum]));
@@ -214,8 +214,7 @@ app.post('/registerRuntime', async function (req, res) {
 
             res.sendStatus(200);
             return;
-        }
-        else {
+        } else {
             logger.warn('runtime already registered');
             res.sendStatus(400);
             return;
@@ -301,8 +300,7 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
             res.sendStatus(200);
             return;
-        }
-        else {
+        } else {
             logger.warn('function already registered');
             res.sendStatus(400);
             return;
@@ -356,7 +354,7 @@ app.post('/invokeFunction', async function (req, res) {
     sendMsg.msgType = 'insertCall';
     sendMsg.content = insert;
     sockDB.send(JSON.stringify(sendMsg));
-    
+
     transmitCall(callNum);
 
     index = 'c' + callNum;
@@ -364,7 +362,7 @@ app.post('/invokeFunction', async function (req, res) {
     callStore[index] = insert;
 
     logger.debug(`callstore ${JSON.stringify(callStore)}`);
-    
+
 
     // TODO: SPLIT the method here and sort out the invocation policies.
 
@@ -399,7 +397,7 @@ app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${
 //     }
 // });
 
-function updateCall(body){
+function updateCall(body) {
     // TODO: falta pulir pero está cool
     index = 'c' + body.callNum;
 
@@ -411,7 +409,7 @@ function updateCall(body){
 
 // ZMQ
 
-sockRep.on("message",function(msg){
+sockRep.on("message", function (msg) {
 
     logger.verbose(`SOCKREP ${msg}`)
 
@@ -425,7 +423,7 @@ sockRep.on("message",function(msg){
 
 });
 
-sockDB.on("message",function(msg){
+sockDB.on("message", function (msg) {
 
     // handle these responses better
 
@@ -433,7 +431,7 @@ sockDB.on("message",function(msg){
 
 });
 
-function transmitRuntime(img){
+function transmitRuntime(img) {
 
     logger.verbose(`TRANSMITTING RUNTIME ${img}`);
 
@@ -441,7 +439,7 @@ function transmitRuntime(img){
 
 }
 
-function transmitFunction(func){
+function transmitFunction(func) {
 
     logger.verbose(`TRANSMITTING FUNCTION ${func}`);
 
@@ -449,7 +447,7 @@ function transmitFunction(func){
 
 }
 
-function transmitCall(call){
+function transmitCall(call) {
 
     logger.verbose(`TRANSMITTING CALL ${call}`);
 
