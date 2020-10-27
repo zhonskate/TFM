@@ -5,7 +5,10 @@ var invoke = require('./invoke');
 var utils = require('./utils');
 var registryIP = 'localhost';
 var registryPort = '5000';
-const { PerformanceObserver, performance } = require('perf_hooks');
+const {
+    PerformanceObserver,
+    performance
+} = require('perf_hooks');
 
 
 // DB-RELATED DECLARATIONS
@@ -54,6 +57,19 @@ const console = new logger.transports.Console({
 logger.add(console);
 logger.add(files);
 
+// Available spots;
+
+const concLevel = 4;
+var spots = {};
+freeSpots = [];
+
+for (i = 0; i < concLevel; i++) {
+    spots['spot' + i] = {};
+    freeSpots.push(i);
+}
+
+logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+
 // zmq init
 
 var sockReq = zmq.socket('req');
@@ -74,7 +90,7 @@ sockDB.connect(addressDB);
 logger.info(`Worker Sub connected to ${addressDB}`);
 
 
-sockSub.on('message', function(msg){
+sockSub.on('message', function (msg) {
     logger.info(`MESSAGE PUB ${msg}`);
 
     stMsg = msg.toString();
@@ -112,10 +128,10 @@ function processFunction(arrayMsg) {
     logger.verbose(functionPool);
 }
 
-function fetchFunction(funcName){
+function fetchFunction(funcName) {
 
     logger.verbose(`FETCHING FUNCTION ${funcName}`);
-    
+
     var sendMsg = {}
     sendMsg.msgType = 'fetchFunction';
     sendMsg.content = funcName;
@@ -123,7 +139,7 @@ function fetchFunction(funcName){
 
 }
 
-function storeFunction(body){
+function storeFunction(body) {
     logger.verbose(`STORING FUNCTION ${JSON.stringify(body)}`);
     functionStore[body.function.functionName] = body;
     logger.debug(`STORE ${JSON.stringify(functionStore)}`);
@@ -143,7 +159,7 @@ function storeFunction(body){
 
 }
 
-function processCall(arrayMsg){
+function processCall(arrayMsg) {
 
     callNum = arrayMsg[1]
     logger.verbose(`INVOKE ${callNum}`);
@@ -159,9 +175,9 @@ function processCall(arrayMsg){
 
 }
 
-function enqueueCall(body){
+function prepareCall(body) {
     logger.verbose(`ENQUEUING CALL ${JSON.stringify(body)}`);
-    
+
     const callNum = body.callNum;
     const funcName = body.funcName;
     const params = body.params;
@@ -199,37 +215,100 @@ function enqueueCall(body){
     // prepare the object
 
     let callObject = {
-        "runtime":functionObj.runtimeName,
-        "registry":`${registryIP}:${registryPort}`,
-        "callNum":callNum,
-        "funcName":funcName,
-        "containerPath":containerPath,
-        "runtimeDeps":runtimeDeps,
-        "runtimeRunCmd":runtimeRunCmd,
-        "insertedCall":body
+        "runtime": functionObj.runtimeName,
+        "registry": `${registryIP}:${registryPort}`,
+        "callNum": callNum,
+        "funcName": funcName,
+        "containerPath": containerPath,
+        "runtimeDeps": runtimeDeps,
+        "runtimeRunCmd": runtimeRunCmd,
+        "insertedCall": body
     }
+
+    enqueueCall(callObject);
+
+}
+
+function enqueueCall (callObject){
 
     callQueue.push(callObject);
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
 
-    // FIXME: Esto no tiene que ir aqui. cambiar.
+    checkSpots();
 
-    // docker in docker issue.
+}
+
+function checkSpots(){
+
+    // check if there are calls in the queue
+
+    if (callQueue.length == 0){
+        logger.verbose('Call queue empty');
+        return;
+    }
+
+    // check if the call has a suitable spot
+
+    // FIXME: Revisar esto. En un futuro va a depender de las preloads, etc. Harán falta mas data structures.
+
+    if (freeSpots.length == 0){
+        logger.verbose('No available spots');
+        return;
+    }
+
+    // Select the call 
+
+    callObject = callQueue.shift();
+
+    // Select and assign the spot
+
+    spot = freeSpots.shift();
+    spots['spot' + spot].callNum = callObject.callNum;
+    spots['spot' + spot].status = 'ASSIGNED';
+
+    logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+
+    executeFunction(callObject, spot);
+
+}
+
+function executeFunction(callObject, spot){
+
+    logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
+
+    // invokation depends on policy
+
     invoke.preloadNothing(logger, callObject, CALLS_PATH)
-        .then((insertedCall) => {
-            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-            // Updatear la DB
+    .then((insertedCall) => {
+        logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+        // Updatear la DB
 
-            var sendMsg = {}
-            sendMsg.msgType = 'updateCall';
-            sendMsg.content = insertedCall;
-            sockDB.send(JSON.stringify(sendMsg));
+        var sendMsg = {}
+        sendMsg.msgType = 'updateCall';
+        sendMsg.content = insertedCall;
+        sockDB.send(JSON.stringify(sendMsg));
 
-            sockReq.send(JSON.stringify(sendMsg));
+        // avisar a la API
 
-        });
+        sockReq.send(JSON.stringify(sendMsg));
 
+        liberateSpot(spot);
+
+    });
+
+}
+
+function liberateSpot(spot){
+
+    logger.verbose(`Liberating spot ${spot}`);
+    freeSpots.push(spot);
+    spots['spot' + spot] = {};
+
+    logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+
+    checkSpots();
+    
 }
 
 // TODO: pool for available rts and functions. Auto management of each pool
@@ -237,11 +316,11 @@ function enqueueCall(body){
 // TODO: get the calls and invoke as needed. 
 
 
-sockReq.on('message', function(msg){
+sockReq.on('message', function (msg) {
     logger.info(`MESSAGE REP ${msg}`);
 });
 
-sockDB.on('message', function(msg){
+sockDB.on('message', function (msg) {
     logger.verbose(`MESSAGE DB ${msg}`);
     msg = JSON.parse(msg);
 
@@ -250,7 +329,7 @@ sockDB.on('message', function(msg){
             storeFunction(msg.content);
             break;
         case 'fetchedCall':
-            enqueueCall(msg.content);
+            prepareCall(msg.content);
             break;
         case 'callInserted':
             break;
