@@ -16,7 +16,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'verbose';
+logger.level = 'debug';
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -384,7 +384,8 @@ app.post('/invokeFunction', async function (req, res) {
 //----------------------------------------------------------------------------------//
 
 function updateCall(body) {
-    // TODO: falta pulir pero está cool
+    // TODO: falta pulir pero está cool 
+    // FIXME: meterle el functionName
 
     var timing = new Date().getTime();
     body.timing.result = timing;

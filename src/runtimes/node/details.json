@@ -1,0 +1,6 @@
+{
+    "image": "noderuntime",
+    "path": "/ws",
+    "dependencies": "echo ",
+    "run":"node test.js" 
+}

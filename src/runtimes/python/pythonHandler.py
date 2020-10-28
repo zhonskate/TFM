@@ -1,24 +1,26 @@
 #!/usr/bin/python
 
-import sys
-import subprocess
+# DEPRECATED
 
-if len(sys.argv) != 3 or sys.argv[1] is 'help':
-    print('python3 pythonHandler.py test.py <REQUIREMENTS FILE>')
-    exit(0)
+# import sys
+# import subprocess
 
-codeFile = sys.argv[1]
-reqFile = sys.argv[2]
+# if len(sys.argv) != 3 or sys.argv[1] is 'help':
+#     print('python3 pythonHandler.py test.py <REQUIREMENTS FILE>')
+#     exit(0)
 
-print('installing dependencies...')
-bashCommand = f"pip3 install -r {reqFile}"
-process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-output, error = process.communicate()
+# codeFile = sys.argv[1]
+# reqFile = sys.argv[2]
 
-f=open(codeFile, "r")
+# print('installing dependencies...')
+# bashCommand = f"pip3 install -r {reqFile}"
+# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+# output, error = process.communicate()
 
-code =f.read()
+# f=open(codeFile, "r")
 
-print(code)
+# code =f.read()
 
-exec(code)
+# print(code)
+
+# exec(code)

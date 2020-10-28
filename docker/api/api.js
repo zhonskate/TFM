@@ -16,7 +16,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'verbose';
+logger.level = 'debug';
 
 const myformat = logger.format.combine(
     logger.format.colorize(),

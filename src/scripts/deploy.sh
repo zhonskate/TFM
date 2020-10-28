@@ -18,7 +18,7 @@ docker run -d -v faasRegistry:/var/lib/registry -p 5000:5000 --name faas-registr
 
 echo 'launching faas-api...'
 
-docker run -d -p 3000:3000 -v log-vol:/ws/logs -v uploads-vol:/ws/uploads --net=faas --name faas-api faas-api
+docker run -d -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v log-vol:/ws/logs -v uploads-vol:/ws/uploads --net=faas --name faas-api faas-api
 
 echo 'launching faas-db...'
 

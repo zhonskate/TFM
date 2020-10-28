@@ -2,21 +2,21 @@
 
 curl --header "Content-Type: application/json" \
     -X POST \
-    --data '{"image": "pythonruntime","path": "/ws","dependencies": "echo ","run":"python3 test.py"}' \
+    --data '{"image": "noderuntime","path": "/ws","dependencies": "echo ","run":"node test.js"}' \
     localhost:3000/registerRuntime
 echo -e ''
 
 # registerFunction
 
 curl -X POST \
--F module=@../runtimes/python/hello/hello.tar.gz \
-localhost:3000/registerFunction/pythonruntime/hello
+-F module=@../runtimes/node/hello/hello.tar.gz \
+localhost:3000/registerFunction/noderuntime/hellonode
 echo -e ''
 
 # invoke Function
 
 curl --header "Content-Type: application/json" \
--X POST --data '{"funcName":"hello", "params": {}}' \
+-X POST --data '{"funcName":"hellonode", "params": {}}' \
 localhost:3000/invokeFunction
 echo -e ''
 

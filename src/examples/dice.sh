@@ -2,7 +2,7 @@
 
 curl --header "Content-Type: application/json" \
     -X POST \
-    --data '{"image": "pythonruntime","path": "/ws","dependencies": "echo ''","run":"python3 test.py"}' \
+    --data '{"image": "pythonruntime","path": "/ws","dependencies": "echo ","run":"python3 test.py"}' \
     localhost:3000/registerRuntime
 echo -e ''
 
