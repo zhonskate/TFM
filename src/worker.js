@@ -1,41 +1,18 @@
+// Libraries
+//----------------------------------------------------------------------------------//
+
 var zmq = require('zeromq');
-var fs = require('fs');
 const logger = require('winston');
 var invoke = require('./invoke');
 var utils = require('./utils');
 var registryIP = 'localhost';
 var registryPort = '5000';
-const {
-    PerformanceObserver,
-    performance
-} = require('perf_hooks');
 
 
-// DB-RELATED DECLARATIONS
+// Declarations
+//----------------------------------------------------------------------------------//
 
-const DB_NAME = 'db.json';
-const COLLECTION_FUNCTIONS = 'functions';
-const COLLECTION_RUNTIMES = 'runtimes';
-const COLLECTION_CALLS = 'calls';
-const UPLOAD_PATH = 'uploads';
-const CALLS_PATH = 'calls';
-
-
-// Data structures
-
-// Pool of available runtime names
-var runtimePool = [];
-
-// Pool of available function names
-var functionPool = [];
-
-// Queue of calls
-var callQueue = [];
-
-// Pool of available function + runtime info
-var functionStore = {};
-
-// winston init
+// Logger
 
 logger.level = 'debug';
 
@@ -57,6 +34,41 @@ const console = new logger.transports.Console({
 logger.add(console);
 logger.add(files);
 
+
+// Zmq
+
+const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2000`;
+const addressSub = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2001`;
+const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-db:2002`;
+
+var sockReq = zmq.socket('req');
+sockReq.connect(addressReq);
+logger.info(`Worker Req connected to ${addressReq}`);
+
+var sockSub = zmq.socket('sub');
+sockSub.connect(addressSub);
+sockSub.subscribe('');
+logger.info(`Worker Sub connected to ${addressSub}`);
+
+var sockDB = zmq.socket('req');
+sockDB.connect(addressDB);
+logger.info(`Worker Sub connected to ${addressDB}`);
+
+
+// Data structures
+
+// Pool of available runtime names
+var runtimePool = [];
+
+// Pool of available function names
+var functionPool = [];
+
+// Queue of calls
+var callQueue = [];
+
+// Pool of available function + runtime info
+var functionStore = {};
+
 // Available spots;
 
 const concLevel = 4;
@@ -68,47 +80,15 @@ for (i = 0; i < concLevel; i++) {
     freeSpots.push(i);
 }
 
-logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
-// zmq init
+// Other
 
-var sockReq = zmq.socket('req');
-const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2000`;
-sockReq.connect(addressReq);
-logger.info(`Worker Req connected to ${addressReq}`);
-
-var sockSub = zmq.socket('sub');
-const addressSub = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2001`;
-sockSub.connect(addressSub);
-sockSub.subscribe('');
-logger.info(`Worker Sub connected to ${addressSub}`);
+const CALLS_PATH = 'calls';
 
 
-var sockDB = zmq.socket('req');
-const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-db:2002`;
-sockDB.connect(addressDB);
-logger.info(`Worker Sub connected to ${addressDB}`);
-
-
-sockSub.on('message', function (msg) {
-    logger.info(`MESSAGE PUB ${msg}`);
-
-    stMsg = msg.toString();
-    var arrayMsg = stMsg.split('///');
-
-    switch (arrayMsg[0]) {
-        case 'RUNTIME':
-            processRuntime(arrayMsg);
-            break;
-        case 'FUNCTION':
-            processFunction(arrayMsg);
-            break;
-        case 'INVOKE':
-            processCall(arrayMsg);
-            break;
-    }
-
-});
+// Functions
+//----------------------------------------------------------------------------------//
 
 function processRuntime(arrayMsg) {
 
@@ -323,8 +303,31 @@ function liberateSpot(spot) {
 // TODO: get the calls and invoke as needed. 
 
 
+// Event handling
+//----------------------------------------------------------------------------------//
+
 sockReq.on('message', function (msg) {
     logger.info(`MESSAGE REP ${msg}`);
+});
+
+sockSub.on('message', function (msg) {
+    logger.info(`MESSAGE PUB ${msg}`);
+
+    stMsg = msg.toString();
+    var arrayMsg = stMsg.split('///');
+
+    switch (arrayMsg[0]) {
+        case 'RUNTIME':
+            processRuntime(arrayMsg);
+            break;
+        case 'FUNCTION':
+            processFunction(arrayMsg);
+            break;
+        case 'INVOKE':
+            processCall(arrayMsg);
+            break;
+    }
+
 });
 
 sockDB.on('message', function (msg) {

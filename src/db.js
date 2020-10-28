@@ -1,9 +1,16 @@
+// Libraries
+//----------------------------------------------------------------------------------//
+
 var Loki = require('lokijs');
 const logger = require('winston');
 var del = require('del');
 var zmq = require('zeromq');
 
-// LOGGER-RELATED DECLARATIONS
+
+// Declarations
+//----------------------------------------------------------------------------------//
+
+// Logger
 
 logger.level = 'debug';
 
@@ -25,7 +32,17 @@ const console = new logger.transports.Console({
 logger.add(console);
 logger.add(files);
 
-// DB-RELATED DECLARATIONS
+
+//Zmq
+
+const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
+
+var sockRep = zmq.socket('rep');
+sockRep.bindSync(addressReq);
+logger.info(`ZMQ DB BOUND TO ${addressReq}`);
+
+
+// Database
 
 const DB_NAME = 'db.json';
 const COLLECTION_FUNCTIONS = 'functions';
@@ -37,9 +54,6 @@ var colFunctions, colCalls, colRuntimes;
 const db = new Loki(`${UPLOAD_PATH}/${DB_NAME}`, {
     persistenceMethod: 'fs'
 });
-
-//----------------------------------------------------------------------------------//
-// Upload-related code
 
 const loadCollection = function (colName, db) {
     return new Promise(resolve => {
@@ -60,7 +74,6 @@ const cleanFolder = function (folderPath) {
 cleanFolder(UPLOAD_PATH);
 cleanFolder(CALLS_PATH);
 
-// TODO: DATABASE SAVING NOT WORKING
 async function loadDBs() {
     colFunctions = await loadCollection(COLLECTION_FUNCTIONS, db);
     colRuntimes = await loadCollection(COLLECTION_RUNTIMES, db);
@@ -70,6 +83,10 @@ async function loadDBs() {
 loadDBs().then(() => {
     logger.info('DBs loaded')
 })
+
+
+// Functions
+//----------------------------------------------------------------------------------//
 
 function getAllRuntimes() {
     var solArr = colRuntimes.where(function (obj) {
@@ -229,10 +246,8 @@ function updateCall(body) {
 }
 
 
-var sockRep = zmq.socket('rep');
-const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
-sockRep.bind(addressReq);
-logger.info(`DB Req binded to ${addressReq}`);
+// Event handling
+//----------------------------------------------------------------------------------//
 
 sockRep.on('message', function (msg) {
 

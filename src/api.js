@@ -1,4 +1,5 @@
-// LIBRARIES
+// Libraries
+//----------------------------------------------------------------------------------//
 
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -6,18 +7,14 @@ var logger = require('winston');
 var multer = require('multer');
 var cors = require('cors');
 var del = require('del');
-const {
-    execSync
-} = require('child_process');
 var utils = require('./utils');
-var invoke = require('./invoke');
 var zmq = require('zeromq');
-const fs = require('fs');
-const EventEmitter = require('events');
-const myEmitter = new EventEmitter();
 
 
-// LOGGER-RELATED DECLARATIONS
+// Declarations
+//----------------------------------------------------------------------------------//
+
+// Logger
 
 logger.level = 'debug';
 
@@ -47,7 +44,8 @@ logger.log('info', '2: info');
 logger.log('warn', '1: warn');
 logger.log('error', '0: error'); */
 
-// multer configuration
+
+// Multer
 
 const UPLOAD_PATH = 'uploads';
 const CALLS_PATH = 'calls';
@@ -56,48 +54,36 @@ const upload = multer({
 });
 
 
-// EXPRESS CONF
+// Express
 
 const app = express()
 app.use(cors());
 app.use(bodyParser.json())
 
-// OTHER DECLARATIONS
+
+// Zmq
 
 const port = 3000
 var registryIP = 'localhost';
 var registryPort = '5000';
-const INVOKE_MODE = 'PRELOAD_NOTHING';
 const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
 const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
 const addressDB = process.env.ZMQ_BIND_ADDRESS || `tcp://faas-db:2002`;
 
-// zmq init
-
 var sockRep = zmq.socket('rep');
 sockRep.bindSync(addressRep);
-
 logger.info(`ZMQ REPLY ON ${addressRep}`);
 
 var sockPub = zmq.socket('pub');
 sockPub.bindSync(addressPub);
-
 logger.info(`ZMQ PUB ON ${addressPub}`);
 
 var sockDB = zmq.socket('req');
 sockDB.connect(addressDB);
-
 logger.info(`ZMQ DB ON ${addressDB}`);
 
-// FIXME: Cambiarlo por algo con sentido
-// var callNum = Math.floor(Math.random() * 10000);
-var callNum = 0;
-var runtimeList = [];
-var functionList = [];
-var callStore = {};
 
-//----------------------------------------------------------------------------------//
-// Upload-related code
+// Uploads
 
 const cleanFolder = function (folderPath) {
     // delete files inside folder but not the folder itself
@@ -108,11 +94,20 @@ cleanFolder(UPLOAD_PATH);
 cleanFolder(CALLS_PATH);
 
 
+// Data structures
+
+var callNum = 0;
+var runtimeList = [];
+var functionList = [];
+var callStore = {};
+
+
+// API
+//----------------------------------------------------------------------------------//
+
 // GET FUNCTIONS
 
 app.get('/functions', function (req, res) {
-
-    // Montar un express en DB y redirigir
 
     logger.info(`GET FUNCTIONS`);
     res.send(functionList);
@@ -138,6 +133,9 @@ app.get('/calls', function (req, res) {
     res.send(JSON.stringify(callStore));
 
 });
+
+
+// GET CALLNUM
 
 app.get('/call/:callNum', function (req, res) {
 
@@ -382,30 +380,8 @@ app.post('/invokeFunction', async function (req, res) {
 });
 
 
-// SERVER START
-
-app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
-
-// EVENT HANDLING
-
-// myEmitter.on('event', function(runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall) {
-//     switch (INVOKE_MODE) {
-//         case 'PRELOAD_NOTHING':
-//             invoke.preloadNothing(logger, runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall, CALLS_PATH)
-//             .then((insertedCall) => {
-//                 logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-//                 logger.debug(`COL CALL ${JSON.stringify(colCalls)}`);
-//                 colCalls.update(insertedCall);
-//             });
-//             break;
-//         case 'PRELOAD_RUNTIME':
-//             invoke.preloadRuntime();
-//             break;
-//         case 'PRELOAD_FUNCTION':
-//             invoke.preloadFunction()
-//             break;
-//     }
-// });
+// Functions
+//----------------------------------------------------------------------------------//
 
 function updateCall(body) {
     // TODO: falta pulir pero está cool
@@ -441,30 +417,6 @@ function fixTiming(index) {
 
 }
 
-// ZMQ
-
-sockRep.on("message", function (msg) {
-
-    logger.verbose(`SOCKREP ${msg}`)
-
-    msg = JSON.parse(msg);
-
-    switch (msg.msgType) {
-        case 'updateCall':
-            updateCall(msg.content);
-            break;
-    }
-
-});
-
-sockDB.on("message", function (msg) {
-
-    // handle these responses better
-
-    logger.info(`SOCKDB ${msg}`);
-
-});
-
 function transmitRuntime(img) {
 
     logger.verbose(`TRANSMITTING RUNTIME ${img}`);
@@ -489,8 +441,42 @@ function transmitCall(call) {
 
 }
 
+
+// Event handling
 //----------------------------------------------------------------------------------//
-// SIGNAL HANDLING
+
+sockRep.on("message", function (msg) {
+
+    logger.verbose(`SOCKREP ${msg}`)
+
+    msg = JSON.parse(msg);
+
+    switch (msg.msgType) {
+        case 'updateCall':
+            updateCall(msg.content);
+            break;
+    }
+
+});
+
+
+sockDB.on("message", function (msg) {
+
+    // handle these responses better
+
+    logger.info(`SOCKDB ${msg}`);
+
+});
+
+
+// Server start
+//----------------------------------------------------------------------------------//
+
+app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
+
+
+// Signal handling
+//----------------------------------------------------------------------------------//
 
 process.on('SIGINT', function () {
     logger.info('Received SIGINT');

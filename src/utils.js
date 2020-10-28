@@ -1,7 +1,14 @@
+// Libraries
+//----------------------------------------------------------------------------------//
+
 const {
     execSync,
     exec
 } = require('child_process');
+
+
+// Functions
+//----------------------------------------------------------------------------------//
 
 function execute(logger, cmd) {
 
@@ -120,7 +127,6 @@ function forceDeleteContainer(logger, containerName) {
     execute(logger, commandline);
 }
 
-
 async function runDockerCommand(logger, containerName, command) {
 
     logger.verbose(`COPY INPUT ${containerName}`)
@@ -139,6 +145,10 @@ function validName(logger, name) {
     logger.debug(`REG RESULT ${reg.test(name)}`);
     return !reg.test(name);
 }
+
+
+// Exports
+//----------------------------------------------------------------------------------//
 
 module.exports = {
     createContainer,

@@ -1,5 +1,12 @@
+// Libraries
+//----------------------------------------------------------------------------------//
+
 var utils = require('./utils');
 const fs = require('fs');
+
+
+// Functions
+//----------------------------------------------------------------------------------//
 
 async function preloadNothing(logger, callObject, CALLS_PATH) {
 
@@ -81,6 +88,10 @@ async function preloadRuntime() {
 async function preloadFunction() {
 
 }
+
+
+// Exports
+//----------------------------------------------------------------------------------//
 
 module.exports = {
     preloadNothing,
