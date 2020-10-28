@@ -1,5 +1,6 @@
-import dice
 import sys
+sys.path.append('/ws/deps')
+import dice
 import json
 
 roll = []

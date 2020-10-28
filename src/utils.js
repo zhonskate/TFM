@@ -68,6 +68,18 @@ async function createContainer(logger, runtime, registryIP, registryPort, callNu
     await execute(logger, commandline);
 }
 
+async function runContainer(logger, runtime, registryIP, registryPort, callNum) {
+
+    logger.debug(`CREATE CONTAINER ${runtime}`);
+
+    var commandline = `docker run -d \
+        --name ${callNum}-${runtime} \
+        -t \
+        ${registryIP}:${registryPort}/${runtime}`
+
+    await execute(logger, commandline);
+}
+
 async function copyFunction(logger, runtime, funcName, containerName, containerPath) {
 
     logger.verbose(`COPY DATA ${runtime} ${funcName}`);
@@ -162,6 +174,7 @@ function validName(logger, name) {
 
 module.exports = {
     createContainer,
+    runContainer,
     executeSync,
     copyFunction,
     startContainer,

@@ -1,0 +1,6 @@
+{
+    "image": "pythonruntime",
+    "path": "/ws",
+    "dependencies": "echo ",
+    "run":"python3 test.py" 
+}

@@ -25,27 +25,23 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).
 
-    // TODO: Asyncronyze. 
-    // FIXME pues no va mi pana. A ver que hacemos para hacerlo async
-
     // TODO: parametrize the hostpath
 
     var containerName = `${callNum}-${runtime}`;
 
-    await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
+    // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
+
+    await utils.runContainer(logger, runtime, registryIP, registryPort, callNum);
 
     // TODO: copy data
     // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
+
+    // await utils.startContainer(logger, containerName);
 
     var timing = new Date().getTime();
     callObject.insertedCall.timing.runtime = timing;
 
     await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
-
-    // TODO: call the function on the runtime image. read the parameters and pass them to the func.
-
-    await utils.startContainer(logger, containerName);
-
 
     // Install the dependencies
 

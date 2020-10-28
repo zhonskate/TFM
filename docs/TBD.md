@@ -28,7 +28,7 @@ Una vez todo sea funcional, sin precarga de nada, la arquitectura y las comms fu
 
 ## Largo plazo
 
-> Side note: Todo esto me molaria tenerlo antes del 15 de Nov, que hay que escribir una memoria xDDD
+> Side note: Todo esto me molaria tenerlo antes del 10 de Nov, que hay que escribir una memoria xddd.
 
 Esta es la parte de test, básicamente hacer tests que valgan la pena y compararlos entre ellos. Todo esto cuando tengamos un sistema que se pueda gastar.
 
