@@ -14,7 +14,7 @@ var registryPort = '5000';
 
 // Logger
 
-logger.level = 'debug';
+logger.level = 'verbose';
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -95,7 +95,7 @@ function processRuntime(arrayMsg) {
     var img = arrayMsg[1]
     logger.verbose(`RECEIVED RUNTIME ${img}`);
     runtimePool.push(img);
-    logger.verbose(runtimePool);
+    logger.debug(runtimePool);
 
 }
 
@@ -105,7 +105,7 @@ function processFunction(arrayMsg) {
     logger.verbose(`RECEIVED FUNCTION ${funcName}`);
     functionPool.push(funcName);
     fetchFunction(funcName);
-    logger.verbose(functionPool);
+    logger.debug(functionPool);
 }
 
 function fetchFunction(funcName) {
@@ -251,7 +251,7 @@ function checkSpots() {
     spots['spot' + spot].callNum = callObject.callNum;
     spots['spot' + spot].status = 'ASSIGNED';
 
-    logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+    logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
     executeFunction(callObject, spot);
 
@@ -292,7 +292,7 @@ function liberateSpot(spot) {
     freeSpots.push(spot);
     spots['spot' + spot] = {};
 
-    logger.info(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+    logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
     checkSpots();
 
@@ -307,11 +307,11 @@ function liberateSpot(spot) {
 //----------------------------------------------------------------------------------//
 
 sockReq.on('message', function (msg) {
-    logger.info(`MESSAGE REP ${msg}`);
+    logger.verbose(`MESSAGE REP ${msg}`);
 });
 
 sockSub.on('message', function (msg) {
-    logger.info(`MESSAGE PUB ${msg}`);
+    logger.verbose(`MESSAGE PUB ${msg}`);
 
     stMsg = msg.toString();
     var arrayMsg = stMsg.split('///');

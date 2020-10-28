@@ -12,7 +12,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'debug';
+logger.level = 'verbose';
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -81,7 +81,7 @@ async function loadDBs() {
 }
 
 loadDBs().then(() => {
-    logger.info('DBs loaded')
+    logger.verbose('DBs loaded')
 })
 
 

@@ -12,12 +12,17 @@ const {
 
 function execute(logger, cmd) {
 
-    logger.verbose(`EXECUTE ${cmd}`);
+    logger.debug(`EXECUTE ${cmd}`);
 
     return new Promise((resolve, reject) => {
         exec(cmd, (error, stdout, stderr) => {
             if (stderr) {
-                logger.log('error', stderr);
+                if(stderr.toLocaleLowerCase().includes('warning')){
+                    logger.warn(stderr);
+                }
+                else{
+                    logger.log('error', stderr);
+                }
             }
 
             if (error !== null) {
@@ -29,14 +34,19 @@ function execute(logger, cmd) {
     });
 }
 
-function executeSync(logger, commandline) {
+async function executeSync(logger, commandline) {
 
-    logger.verbose(`EXECUTE SYNC ${commandline}`);
+    logger.debug(`EXECUTE SYNC ${commandline}`);
 
     execSync(commandline, function (error, stdout, stderr) {
 
         if (stderr) {
-            logger.log('error', stderr);
+            if(stderr.toLocaleLowerCase().includes('warning')){
+                logger.warn(stderr);
+            }
+            else{
+                logger.log('error', stderr);
+            }
         }
 
         if (error !== null) {
@@ -48,7 +58,7 @@ function executeSync(logger, commandline) {
 
 async function createContainer(logger, runtime, registryIP, registryPort, callNum) {
 
-    logger.verbose(`CREATE CONTAINER ${runtime}`);
+    logger.debug(`CREATE CONTAINER ${runtime}`);
 
     var commandline = `docker create \
         --name ${callNum}-${runtime} \
@@ -71,7 +81,7 @@ async function copyFunction(logger, runtime, funcName, containerName, containerP
 
 async function startContainer(logger, containerName) {
 
-    logger.verbose(`START CONTAINER ${containerName}`);
+    logger.debug(`START CONTAINER ${containerName}`);
 
     var commandline = `docker start ${containerName}`;
 
@@ -80,7 +90,7 @@ async function startContainer(logger, containerName) {
 
 async function copyInput(logger, containerName, containerPath, callNum) {
 
-    logger.verbose(`COPY INPUT ${containerName}`)
+    logger.debug(`COPY INPUT ${containerName}`)
 
     var commandline = `docker cp \
         ${__dirname}/calls/${callNum}/input.json \
@@ -91,7 +101,7 @@ async function copyInput(logger, containerName, containerPath, callNum) {
 
 async function fetchOutput(logger, containerName, containerPath, callNum) {
 
-    logger.verbose(`FETCH OUTPUT ${containerName}`)
+    logger.debug(`FETCH OUTPUT ${containerName}`)
 
     var commandline = `docker cp \
         ${containerName}:${containerPath}/output.json \
@@ -110,7 +120,7 @@ function stopContainer(logger, containerName) {
 }
 
 function deleteContainer(logger, containerName) {
-    logger.verbose(`DELETE CONTAINER ${containerName}`)
+    logger.debug(`DELETE CONTAINER ${containerName}`)
 
     var commandline = `docker rm \
         ${containerName}`
@@ -119,7 +129,7 @@ function deleteContainer(logger, containerName) {
 }
 
 function forceDeleteContainer(logger, containerName) {
-    logger.verbose(`DELETE CONTAINER ${containerName}`)
+    logger.debug(`DELETE CONTAINER ${containerName}`)
 
     var commandline = `docker rm -f \
         ${containerName}`
@@ -129,7 +139,7 @@ function forceDeleteContainer(logger, containerName) {
 
 async function runDockerCommand(logger, containerName, command) {
 
-    logger.verbose(`COPY INPUT ${containerName}`)
+    logger.debug(`COPY INPUT ${containerName}`)
 
     var commandline = `docker exec \
         ${containerName} \
@@ -140,7 +150,7 @@ async function runDockerCommand(logger, containerName, command) {
 
 function validName(logger, name) {
 
-    logger.verbose(`TESTING REGEX VALIDNAME ${name}`);
+    logger.debug(`TESTING REGEX VALIDNAME ${name}`);
     var reg = /[!@#$%^&*(),.?":{}|<>\-_/]/
     logger.debug(`REG RESULT ${reg.test(name)}`);
     return !reg.test(name);

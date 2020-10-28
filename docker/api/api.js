@@ -16,7 +16,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'debug';
+logger.level = 'verbose';
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -109,7 +109,7 @@ var callStore = {};
 
 app.get('/functions', function (req, res) {
 
-    logger.info(`GET FUNCTIONS`);
+    logger.http(`GET FUNCTIONS`);
     res.send(functionList);
 
 });
@@ -119,7 +119,7 @@ app.get('/functions', function (req, res) {
 
 app.get('/runtimes', function (req, res) {
 
-    logger.info(`GET RUNTIMES`);
+    logger.http(`GET RUNTIMES`);
     res.send(runtimeList);
 
 });
@@ -129,7 +129,7 @@ app.get('/runtimes', function (req, res) {
 
 app.get('/calls', function (req, res) {
 
-    logger.info(`GET CALLS`);
+    logger.http(`GET CALLS`);
     res.send(JSON.stringify(callStore));
 
 });
@@ -139,7 +139,7 @@ app.get('/calls', function (req, res) {
 
 app.get('/call/:callNum', function (req, res) {
 
-    logger.info(`GET CALL ${req.params.callNum}`);
+    logger.http(`GET CALL ${req.params.callNum}`);
 
     res.send(JSON.stringify(callStore['c' + req.params.callNum]));
 
@@ -152,14 +152,14 @@ app.post('/registerRuntime', async function (req, res) {
 
     try {
 
-        logger.info(`REGISTER RUNTIME ${req.body.image}`);
+        logger.http(`REGISTER RUNTIME ${req.body.image}`);
 
         //TODO: Asignar una ruta para la descompresión de archivos de función.
 
         // {image:<imageName>, path: <path>}
 
-        logger.log('debug', JSON.stringify(req.body));
-        logger.log('debug', req.body.image);
+        logger.debug(JSON.stringify(req.body));
+        logger.debug(req.body.image);
         logger.debug(req.body.path);
         img = req.body.image;
         path = req.body.path;
@@ -205,7 +205,7 @@ app.post('/registerRuntime', async function (req, res) {
             ${registryIP}:${registryPort}/${img}`
             utils.executeSync(logger, commandline);
 
-            logger.info(`image ${img} uploaded to registry`);
+            logger.verbose(`image ${img} uploaded to registry`);
             // return the status
 
             transmitRuntime(img);
@@ -229,7 +229,7 @@ app.post('/registerRuntime', async function (req, res) {
 
 app.post('/registerFunction/:runtimeName/:functionName', upload.single('module'), async (req, res, next) => {
 
-    logger.info(`REGISTER FUNCTION ${req.params.functionName} OF RUNTIME ${req.params.runtimeName}`);
+    logger.http(`REGISTER FUNCTION ${req.params.functionName} OF RUNTIME ${req.params.runtimeName}`);
 
     // TODO: assign function to runtime
 
@@ -325,7 +325,7 @@ app.post('/invokeFunction', async function (req, res) {
     var funcName = req.body.funcName;
     var params = req.body.params;
 
-    logger.info(`INVOKING ${funcName} WITH PARAMS ${JSON.stringify(params)}`);
+    logger.http(`INVOKING ${funcName} WITH PARAMS ${JSON.stringify(params)}`);
 
     // check arguments are present
     if (funcName == undefined || params == undefined) {
@@ -464,7 +464,7 @@ sockDB.on("message", function (msg) {
 
     // handle these responses better
 
-    logger.info(`SOCKDB ${msg}`);
+    logger.verbose(`SOCKDB ${msg}`);
 
 });
 
@@ -472,7 +472,7 @@ sockDB.on("message", function (msg) {
 // Server start
 //----------------------------------------------------------------------------------//
 
-app.listen(port, () => logger.log('info', `FaaS listening at http://localhost:${port}`))
+app.listen(port, () => logger.info(`FaaS listening at http://localhost:${port}`))
 
 
 // Signal handling
@@ -485,7 +485,7 @@ process.on('SIGINT', function () {
         if (err) {
             logger.error("error : " + err);
         } else {
-            logger.info("database saved.");
+            logger.verbose("database saved.");
             process.exit();
         }
     });

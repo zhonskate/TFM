@@ -20,7 +20,7 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     let runtimeRunCmd = callObject.runtimeRunCmd;
     let insertedCall = callObject.insertedCall;
 
-    logger.info(`PRELOAD NOTHING`);
+    logger.verbose(`PRELOAD NOTHING`);
 
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).
