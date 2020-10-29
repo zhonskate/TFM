@@ -77,7 +77,33 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
 
 }
 
-async function preloadRuntime() {
+async function preloadRuntime(logger, callObject) {
+
+    let runtime = callObject.runtime;
+    let registryIP = callObject.registry.split(':')[0];
+    let registryPort = callObject.registry.split(':')[1];
+    let callNum = callObject.callNum;
+
+    logger.verbose(`PRELOAD NOTHING`);
+
+    // launch the container volume-binding the uncompressed files. Leave the container idling 
+    // (this should be done on the image I guess).
+
+    // TODO: parametrize the hostpath
+
+    var containerName = `${callNum}-${runtime}`;
+
+    // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
+
+    await utils.runContainer(logger, runtime, registryIP, registryPort, callNum);
+
+    // TODO: copy data
+    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
+
+    // await utils.startContainer(logger, containerName);
+
+    // var timing = new Date().getTime();
+    // callObject.insertedCall.timing.runtime = timing;
 
 }
 

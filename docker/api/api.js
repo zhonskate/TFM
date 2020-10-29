@@ -75,8 +75,8 @@ const port = faasConf.express;
 
 // Zmq
 
-var registryIP = faasConf.registry.ip;
-var registryPort = faasConf.registry.port;
+const registryIP = faasConf.registry.ip;
+const registryPort = faasConf.registry.port;
 const addressRep = `tcp://*:${faasConf.zmq.apiRep}`;
 const addressPub = `tcp://*:${faasConf.zmq.apiPub}`;
 const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
@@ -380,6 +380,7 @@ app.post('/invokeFunction', async function (req, res) {
     callStore[index] = {};
 
     callStore[index].callNum = insert.callNum;
+    callStore[index].funcName = insert.funcName;
     callStore[index].status = insert.status;
     callStore[index].result = insert.result;
     callStore[index].timing = insert.timing;

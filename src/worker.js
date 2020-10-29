@@ -5,8 +5,6 @@ var zmq = require('zeromq');
 const logger = require('winston');
 var invoke = require('./invoke');
 var utils = require('./utils');
-var registryIP = 'localhost';
-var registryPort = '5000';
 const fs = require('fs');
 
 
@@ -47,9 +45,11 @@ logger.add(files);
 
 // Zmq
 
-const addressReq =  `tcp://faas-api:${faasConf.zmq.apiRep}`;
-const addressSub =  `tcp://faas-api:${faasConf.zmq.apiPub}`;
-const addressDB =  `tcp://faas-db:${faasConf.zmq.db}`;
+const registryIP = faasConf.registry.ip;
+const registryPort = faasConf.registry.port;
+const addressReq = `tcp://faas-api:${faasConf.zmq.apiRep}`;
+const addressSub = `tcp://faas-api:${faasConf.zmq.apiPub}`;
+const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
@@ -98,6 +98,33 @@ const CALLS_PATH = 'calls';
 
 const invokePolicy = faasConf.invokePolicy;
 
+if (invokePolicy == 'PRELOAD_RUNTIME') {
+
+    logger.verbose('preload runtime data structures');
+
+    const windowTime = 300000;
+    var windowArray = [];
+    var baseTarget = {};
+
+    for (i = 0; i < concLevel; i++) {
+        baseTarget['spot' + i] = {};
+    }
+
+    var target = {};
+
+    for (i = 0; i < concLevel; i++) {
+        target['spot' + i] = {};
+    }
+
+    const windowRefresh = 2000;
+
+    setInterval(function () {
+        checkWindows();
+    }, 2000);
+
+
+}
+
 
 // Functions
 //----------------------------------------------------------------------------------//
@@ -108,6 +135,10 @@ function processRuntime(arrayMsg) {
     logger.verbose(`RECEIVED RUNTIME ${img}`);
     runtimePool.push(img);
     logger.debug(runtimePool);
+
+    if (invokePolicy == 'PRELOAD_RUNTIME') {
+        updateBaseTarget();
+    }
 
 }
 
@@ -221,7 +252,11 @@ function prepareCall(body) {
         "insertedCall": body
     }
 
-    enqueueCall(callObject);
+    if (invokePolicy == 'PRELOAD_NOTHING') {
+        enqueueCall(callObject);
+    } else if (invokePolicy == 'PRELOAD_RUNTIME') {
+        checkRuntimeAvailable(callObject);
+    }
 
 }
 
@@ -253,6 +288,14 @@ function checkSpots() {
         return;
     }
 
+    if (invokePolicy == "PRELOAD_NOTHING") {
+        selectFirstAvailable();
+    }
+
+}
+
+function selectFirstAvailable() {
+
     // Select the call 
 
     callObject = callQueue.shift();
@@ -265,11 +308,11 @@ function checkSpots() {
 
     logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
-    executeFunction(callObject, spot);
+    executeNoPreload(callObject, spot);
 
 }
 
-function executeFunction(callObject, spot) {
+function executeNoPreload(callObject, spot) {
 
     var timing = new Date().getTime();
     callObject.insertedCall.timing.execute = timing;
@@ -292,8 +335,11 @@ function executeFunction(callObject, spot) {
 
             sockReq.send(JSON.stringify(sendMsg));
 
-            liberateSpot(spot);
-
+            if (invokePolicy == "PRELOAD_NOTHING") {
+                liberateSpot(spot);
+            } else if (invokePolicy == "PRELOAD_RUNTIME") {
+                backFromExecution(spot);
+            }
         });
 
 }
@@ -308,6 +354,86 @@ function liberateSpot(spot) {
 
     checkSpots();
 
+}
+
+function checkWindows() {
+
+    // TODO:
+
+    // Updatear la widowArray trimming todo lo que sea mas viejo que now - windowRefresh.
+
+    // si la array está vacía -> target = baseTarget.
+
+    // si hay llamadas se ponderan y se actualiza target como sea necesario.
+
+    return;
+}
+
+function updateBaseTarget() {
+
+    if (runtimePool.length > concLevel) {
+        return;
+    }
+
+    for (var i = 0; i < concLevel; i++) {
+        for (var j = 0; j < runtimePool.length && i < concLevel; j++) {
+            var i = i + j;
+            baseTarget['spot' + i] = runtimePool[j];
+        }
+    }
+    logger.verbose(`baseTarget ${JSON.stringify(baseTarget)}`);
+
+}
+
+function backFromExecution(spot) {
+
+    // check if there are calls in the queue
+
+    if (callQueue.length != 0) {
+        callObject = callQueue.shift();
+        spots['spot' + spot].callNum = callObject.callNum;
+        spots['spot' + spot].status = 'ASSIGNED';
+
+        logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+        executeNoPreload(callObject, spot);
+
+        return;
+    } else {
+        spots['spot' + spot].callNum = '';
+        spots['spot' + spot].status = 'RUNTIME';
+        spots['spot' + spot].content = target['spot' + spot];
+
+        logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+        var callObject = {
+            "runtime": target['spot' + spot],
+            "registryIP": registryIP,
+            "registryPort": registryPort,
+            "callNum": `pre${spot}`
+        }
+
+        // FIXME: si se lanza antes de que se caiga el preload anterior es posible que pete. inventar solve
+
+        invoke.preloadRuntime(target['spot' + spot]);
+
+    }
+
+}
+
+function checkRuntimeAvailable(callObject) {
+
+    // TODO:
+
+    // Añadir el timing (insertedCall) y el runtime a la array de windowArray.
+
+    // Recorrer todos los spots para ver si hay alguno en plan 'RUNTIME' y tiene el runtime del callobject.
+
+    // Si es así cambiar el status del spot y ejecutar.
+
+    // de no ser así encolar el callObject.
+
+    return;
 }
 
 // TODO: pool for available rts and functions. Auto management of each pool
