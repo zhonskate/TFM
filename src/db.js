@@ -5,6 +5,16 @@ var Loki = require('lokijs');
 const logger = require('winston');
 var del = require('del');
 var zmq = require('zeromq');
+const fs = require('fs');
+
+
+// Load faas-conf
+//----------------------------------------------------------------------------------//
+
+var content = fs.readFileSync('./faas-conf.json');
+
+const faasConf = JSON.parse(content);
+
 
 
 // Declarations
@@ -12,7 +22,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'verbose';
+logger.level = faasConf.logger;
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -35,7 +45,7 @@ logger.add(files);
 
 //Zmq
 
-const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://*:2002`;
+const addressReq = `tcp://*:${faasConf.zmq.db}`;
 
 var sockRep = zmq.socket('rep');
 sockRep.bindSync(addressReq);

@@ -9,6 +9,15 @@ var cors = require('cors');
 var del = require('del');
 var utils = require('./utils');
 var zmq = require('zeromq');
+const fs = require('fs');
+
+
+// Load faas-conf
+//----------------------------------------------------------------------------------//
+
+var content = fs.readFileSync('./faas-conf.json');
+
+const faasConf = JSON.parse(content);
 
 
 // Declarations
@@ -16,7 +25,7 @@ var zmq = require('zeromq');
 
 // Logger
 
-logger.level = 'debug';
+logger.level = faasConf.logger;
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -44,6 +53,8 @@ logger.log('info', '2: info');
 logger.log('warn', '1: warn');
 logger.log('error', '0: error'); */
 
+logger.info(`conf: ${JSON.stringify(faasConf)}`);
+
 
 // Multer
 
@@ -59,16 +70,16 @@ const upload = multer({
 const app = express()
 app.use(cors());
 app.use(bodyParser.json())
+const port = faasConf.express;
 
 
 // Zmq
 
-const port = 3000
-var registryIP = 'localhost';
-var registryPort = '5000';
-const addressRep = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2000`;
-const addressPub = process.env.ZMQ_BIND_ADDRESS || `tcp://*:2001`;
-const addressDB = process.env.ZMQ_BIND_ADDRESS || `tcp://faas-db:2002`;
+var registryIP = faasConf.registry.ip;
+var registryPort = faasConf.registry.port;
+const addressRep = `tcp://*:${faasConf.zmq.apiRep}`;
+const addressPub = `tcp://*:${faasConf.zmq.apiPub}`;
+const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
 
 var sockRep = zmq.socket('rep');
 sockRep.bindSync(addressRep);
@@ -101,6 +112,10 @@ var runtimeList = [];
 var functionList = [];
 var callStore = {};
 
+
+// other
+
+const invokePolicy = faasConf.invokePolicy;
 
 // API
 //----------------------------------------------------------------------------------//

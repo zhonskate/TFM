@@ -7,7 +7,7 @@ RUN curl -fsSLO https://download.docker.com/linux/static/stable/x86_64/docker-${
 RUN mkdir /ws
 WORKDIR /ws
 RUN npm install --silent zeromq@5.2.0 winston@3.3.3
-COPY *.js /ws/
+COPY *.js* /ws/
 EXPOSE 2000 2001 2002
 CMD ["node", "/ws/worker.js"]
 

@@ -7,6 +7,16 @@ var invoke = require('./invoke');
 var utils = require('./utils');
 var registryIP = 'localhost';
 var registryPort = '5000';
+const fs = require('fs');
+
+
+// Load faas-conf
+//----------------------------------------------------------------------------------//
+
+var content = fs.readFileSync('./faas-conf.json');
+
+const faasConf = JSON.parse(content);
+
 
 
 // Declarations
@@ -14,7 +24,7 @@ var registryPort = '5000';
 
 // Logger
 
-logger.level = 'verbose';
+logger.level = faasConf.logger;
 
 const myformat = logger.format.combine(
     logger.format.colorize(),
@@ -37,9 +47,9 @@ logger.add(files);
 
 // Zmq
 
-const addressReq = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2000`;
-const addressSub = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-api:2001`;
-const addressDB = process.env.ZMQ_CONN_ADDRESS || `tcp://faas-db:2002`;
+const addressReq =  `tcp://faas-api:${faasConf.zmq.apiRep}`;
+const addressSub =  `tcp://faas-api:${faasConf.zmq.apiPub}`;
+const addressDB =  `tcp://faas-db:${faasConf.zmq.db}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
@@ -85,6 +95,8 @@ logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 // Other
 
 const CALLS_PATH = 'calls';
+
+const invokePolicy = faasConf.invokePolicy;
 
 
 // Functions

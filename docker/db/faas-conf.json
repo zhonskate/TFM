@@ -1,0 +1,14 @@
+{
+    "logger":"verbose",
+    "zmq": {
+        "apiRep": 2000,
+        "apiPub": 2001,
+        "db": 2002 
+    },
+    "express":3000,
+    "registry":{
+        "ip":"localhost",
+        "port":5000
+    },
+    "invokePolicy":"PRELOAD_NOTHING"
+}
