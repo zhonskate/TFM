@@ -42,6 +42,8 @@ const console = new logger.transports.Console({
 logger.add(console);
 logger.add(files);
 
+logger.info(`conf: ${JSON.stringify(faasConf)}`);
+
 
 // Zmq
 
@@ -98,29 +100,23 @@ const CALLS_PATH = 'calls';
 
 const invokePolicy = faasConf.invokePolicy;
 
+const windowTime = 300000;
+
+var init = false;
+
 if (invokePolicy == 'PRELOAD_RUNTIME') {
 
     logger.verbose('preload runtime data structures');
 
-    const windowTime = 300000;
     var windowArray = [];
     var baseTarget = {};
-
-    for (i = 0; i < concLevel; i++) {
-        baseTarget['spot' + i] = {};
-    }
-
     var target = {};
-
-    for (i = 0; i < concLevel; i++) {
-        target['spot' + i] = {};
-    }
 
     const windowRefresh = 2000;
 
     setInterval(function () {
         checkWindows();
-    }, 2000);
+    }, windowRefresh);
 
 
 }
@@ -360,13 +356,58 @@ function checkWindows() {
 
     // TODO:
 
-    // Updatear la widowArray trimming todo lo que sea mas viejo que now - windowRefresh.
+    logger.verbose('CHECKING WINDOW');
+
+    var now = new Date().getTime(); 
+    var limit = now - windowTime;
+
+
+    // Updatear la widowArray trimming todo lo que sea mas viejo que now - windowTime.
+
+    while(windowArray.length > 0 && windowArray[0][1] < limit){
+        windowArray.shift();
+    }
 
     // si la array está vacía -> target = baseTarget.
 
+    if (windowArray.length == 0){
+        target = baseTarget;
+    } else {
+
+        var counts = {};
+
+        for (var i = 0; i < windowArray.length; i++) {
+            var rt = windowArray[i][0];
+            counts[rt] = counts[rt] ? counts[rt] + 1 : 1;
+        }
+
+        countsSorted = Object.keys(counts).sort(function(a,b){return counts[a] + counts[b]})
+
+        logger.debug(`countSorted ${JSON.stringify(countsSorted)}`);
+        logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+        // para la ponderación cuento ticks 1/concLevel y asigno el mayor a un ceil y sucesivamente
+
+        target = baseTarget;
+        // to be removed
+
+    }
+
     // si hay llamadas se ponderan y se actualiza target como sea necesario.
 
-    return;
+    // iniciar los spots        
+
+    if (target['spot0'] != null && init == false){
+        initSpots();
+    }
+
+}
+
+function initSpots(){
+    logger.info('INITIALIZING SPOTS');
+    init = true;
+    for (i = 0; i < concLevel; i++) {
+        backFromExecution(i);
+    }
 }
 
 function updateBaseTarget() {
@@ -382,6 +423,7 @@ function updateBaseTarget() {
         }
     }
     logger.verbose(`baseTarget ${JSON.stringify(baseTarget)}`);
+    checkWindows();
 
 }
 
@@ -403,6 +445,7 @@ function backFromExecution(spot) {
         spots['spot' + spot].callNum = '';
         spots['spot' + spot].status = 'RUNTIME';
         spots['spot' + spot].content = target['spot' + spot];
+        spots['spot' + spot].containerName = `pre${spot}`;
 
         logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
@@ -410,7 +453,7 @@ function backFromExecution(spot) {
             "runtime": target['spot' + spot],
             "registryIP": registryIP,
             "registryPort": registryPort,
-            "callNum": `pre${spot}`
+            "containerName": `pre${spot}`
         }
 
         // FIXME: si se lanza antes de que se caiga el preload anterior es posible que pete. inventar solve
@@ -423,17 +466,53 @@ function backFromExecution(spot) {
 
 function checkRuntimeAvailable(callObject) {
 
-    // TODO:
 
     // Añadir el timing (insertedCall) y el runtime a la array de windowArray.
+    windowArray.push([callObject.runtime, callObject.insertedCall.timing.api, callObject.callNum]);
+
+    logger.debug(`WINDOWARRAY ${windowArray}`);
 
     // Recorrer todos los spots para ver si hay alguno en plan 'RUNTIME' y tiene el runtime del callobject.
 
-    // Si es así cambiar el status del spot y ejecutar.
+    for (i = 0; i < concLevel; i++) {
+        var index = 'spot' + i;
+        if (spots[index].status == 'RUNTIME' && spots[index].content == callObject.runtime) {
+
+            // Si es así cambiar el status del spot y ejecutar.
+
+            spots[index].callNum = callObject.callNum;
+            spots[index].status = 'EXECUTING';
+
+            callObject.containerName = spots[index].containerName;
+
+            logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+            invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
+                .then((insertedCall) => {
+                    logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+                    // Updatear la DB
+
+                    var sendMsg = {}
+                    sendMsg.msgType = 'updateCall';
+                    sendMsg.content = insertedCall;
+                    sockDB.send(JSON.stringify(sendMsg));
+
+                    // avisar a la API
+
+                    sockReq.send(JSON.stringify(sendMsg));
+
+                    backFromExecution(spot);
+                });
+            return;
+        }
+    }
 
     // de no ser así encolar el callObject.
 
-    return;
+    callQueue.push(callObject);
+    logger.debug('PUSHED TO CALLQUEUE');
+    logger.debug(JSON.stringify(callQueue));
+
 }
 
 // TODO: pool for available rts and functions. Auto management of each pool

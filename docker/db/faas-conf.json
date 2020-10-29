@@ -1,5 +1,5 @@
 {
-    "logger":"verbose",
+    "logger":"debug",
     "zmq": {
         "apiRep": 2000,
         "apiPub": 2001,
