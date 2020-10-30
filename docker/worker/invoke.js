@@ -107,6 +107,13 @@ async function preloadRuntime(logger, callObject) {
 
 }
 
+async function forceDelete(logger, containerId, runtime) {
+
+    var containerName = `${containerId}-${runtime}`;
+
+    utils.forceDeleteContainer(logger, containerName);
+}
+
 async function execRuntimePreloaded(logger, callObject, CALLS_PATH) {
 
     let runtime = callObject.runtime;
@@ -170,5 +177,6 @@ module.exports = {
     preloadNothing,
     preloadRuntime,
     execRuntimePreloaded,
+    forceDelete,
     preloadFunction
 };
