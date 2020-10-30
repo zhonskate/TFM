@@ -68,12 +68,12 @@ async function createContainer(logger, runtime, registryIP, registryPort, callNu
     await execute(logger, commandline);
 }
 
-async function runContainer(logger, runtime, registryIP, registryPort, callNum) {
+async function runContainer(logger, runtime, registryIP, registryPort, containerName) {
 
     logger.debug(`CREATE CONTAINER ${runtime}`);
 
     var commandline = `docker run -d \
-        --name ${callNum}-${runtime} \
+        --name ${containerName} \
         -t \
         ${registryIP}:${registryPort}/${runtime}`
 

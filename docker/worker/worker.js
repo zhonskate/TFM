@@ -89,6 +89,7 @@ freeSpots = [];
 
 for (i = 0; i < concLevel; i++) {
     spots['spot' + i] = {};
+    spots['spot' + i].multiplier = 0;
     freeSpots.push(i);
 }
 
@@ -112,7 +113,7 @@ if (invokePolicy == 'PRELOAD_RUNTIME') {
     var baseTarget = {};
     var target = {};
 
-    const windowRefresh = 2000;
+    const windowRefresh = 5000;
 
     setInterval(function () {
         checkWindows();
@@ -429,6 +430,8 @@ function updateBaseTarget() {
 
 function backFromExecution(spot) {
 
+    logger.verbose(`BACK FROM EXEC ${spot}`)
+
     // check if there are calls in the queue
 
     if (callQueue.length != 0) {
@@ -445,7 +448,8 @@ function backFromExecution(spot) {
         spots['spot' + spot].callNum = '';
         spots['spot' + spot].status = 'RUNTIME';
         spots['spot' + spot].content = target['spot' + spot];
-        spots['spot' + spot].containerName = `pre${spot}`;
+        spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * concLevel + spot}`;
+        spots['spot' + spot].multiplier = spots['spot' + spot].multiplier + 1
 
         logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
@@ -453,12 +457,12 @@ function backFromExecution(spot) {
             "runtime": target['spot' + spot],
             "registryIP": registryIP,
             "registryPort": registryPort,
-            "containerName": `pre${spot}`
+            "containerName":  spots['spot' + spot].containerName
         }
 
         // FIXME: si se lanza antes de que se caiga el preload anterior es posible que pete. inventar solve
 
-        invoke.preloadRuntime(target['spot' + spot]);
+        invoke.preloadRuntime(logger, callObject);
 
     }
 
@@ -487,22 +491,8 @@ function checkRuntimeAvailable(callObject) {
 
             logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-            invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
-                .then((insertedCall) => {
-                    logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-                    // Updatear la DB
-
-                    var sendMsg = {}
-                    sendMsg.msgType = 'updateCall';
-                    sendMsg.content = insertedCall;
-                    sockDB.send(JSON.stringify(sendMsg));
-
-                    // avisar a la API
-
-                    sockReq.send(JSON.stringify(sendMsg));
-
-                    backFromExecution(spot);
-                });
+            execRtPreloaded(callObject, i);
+            
             return;
         }
     }
@@ -513,6 +503,26 @@ function checkRuntimeAvailable(callObject) {
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
 
+}
+
+function execRtPreloaded(callObject, spot){
+    
+    invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
+        .then((insertedCall) => {
+            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+            // Updatear la DB
+
+            var sendMsg = {}
+            sendMsg.msgType = 'updateCall';
+            sendMsg.content = insertedCall;
+            sockDB.send(JSON.stringify(sendMsg));
+
+            // avisar a la API
+
+            sockReq.send(JSON.stringify(sendMsg));
+
+            backFromExecution(spot);
+        });
 }
 
 // TODO: pool for available rts and functions. Auto management of each pool

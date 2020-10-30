@@ -31,7 +31,7 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
 
     // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
 
-    await utils.runContainer(logger, runtime, registryIP, registryPort, callNum);
+    await utils.runContainer(logger, runtime, registryIP, registryPort, containerName);
 
     // TODO: copy data
     // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
@@ -80,8 +80,8 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
 async function preloadRuntime(logger, callObject) {
 
     let runtime = callObject.runtime;
-    let registryIP = callObject.registry.split(':')[0];
-    let registryPort = callObject.registry.split(':')[1];
+    let registryIP = callObject.registryIP;
+    let registryPort = callObject.registryPort;
     let containerId = callObject.containerName;
 
     logger.verbose(`PRELOAD RUNTIME`);
