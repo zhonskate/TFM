@@ -83,7 +83,7 @@ var functionStore = {};
 
 // Available spots;
 
-const concLevel = 4;
+const concLevel = 8;
 var spots = {};
 freeSpots = [];
 
@@ -424,7 +424,7 @@ function checkWindows() {
 
 }
 
-function refreshSpots(){
+function refreshSpots(allRuntimes){
 
     while (target['spot0'] == null){
         setTimeout(function () {
@@ -434,7 +434,11 @@ function refreshSpots(){
 
     logger.verbose('REFRESHING SPOTS');
     for (i = 0; i < concLevel; i++) {
-        if(spots['spot' + i ].status == 'EXECUTING' || spots['spot' + i ].status == 'ASSIGNED'){
+        if(spots['spot' + i ].status == null){
+            backFromExecution(i);
+        } else if(spots['spot' + i ].status == 'EXECUTING' || spots['spot' + i ].status == 'ASSIGNED'){
+            continue;
+        } else if(spots['spot' + i ].status == 'LOADING_RT' && spots['spot' + i ].buffer != null){
             continue;
         } else {
 
@@ -445,8 +449,11 @@ function refreshSpots(){
                 logger.verbose('EMPTYING SPOT ' + i);
 
                 invoke.forceDelete(logger, spots['spot' + i ].containerName, spots['spot' + i ].content);
+                backFromExecution(i);
+                if(!allRuntimes){
+                    return;
+                }
             }
-            backFromExecution(i);
         }
     }
 }
@@ -465,7 +472,7 @@ function updateBaseTarget() {
     }
     logger.verbose(`baseTarget ${JSON.stringify(baseTarget)}`);
     checkWindows();
-    refreshSpots();
+    refreshSpots(true);
 
 }
 
@@ -483,7 +490,7 @@ function backFromExecution(spot) {
         logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
         executeNoPreload(callObject, spot);
-        refreshSpots();
+        refreshSpots(false);
 
         return;
     } else {
@@ -580,7 +587,7 @@ function checkRuntimeAvailable(callObject) {
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
 
-    //refreshSpots();
+    refreshSpots(false);
 
     // FIXME: HAcer un refresh a mano. Pillar el primer runtime o loading rt, borrarlo y meterle un backfrom exec.
 
