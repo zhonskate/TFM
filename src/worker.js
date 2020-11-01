@@ -412,11 +412,11 @@ function checkWindows() {
 
         }
 
-        logger.info(`Target ${JSON.stringify(target)}`);
-
         // to be removed
 
     }
+
+    logger.info(`Target ${JSON.stringify(target)}`);
 
     // si hay llamadas se ponderan y se actualiza target como sea necesario.
 
@@ -424,7 +424,7 @@ function checkWindows() {
 
 }
 
-function refreshSpots(allRuntimes){
+async function refreshSpots(allRuntimes){
 
     while (target['spot0'] == null){
         setTimeout(function () {
@@ -438,7 +438,7 @@ function refreshSpots(allRuntimes){
             backFromExecution(i);
         } else if(spots['spot' + i ].status == 'EXECUTING' || spots['spot' + i ].status == 'ASSIGNED'){
             continue;
-        } else if(spots['spot' + i ].status == 'LOADING_RT' && spots['spot' + i ].buffer != null){
+        } else if(spots['spot' + i ].status == 'LOADING_RT'){
             continue;
         } else {
 
@@ -448,7 +448,7 @@ function refreshSpots(allRuntimes){
 
                 logger.verbose('EMPTYING SPOT ' + i);
 
-                invoke.forceDelete(logger, spots['spot' + i ].containerName, spots['spot' + i ].content);
+                await invoke.forceDelete(logger, spots['spot' + i ].containerName, spots['spot' + i ].content)
                 backFromExecution(i);
                 if(!allRuntimes){
                     return;
