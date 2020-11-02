@@ -425,7 +425,7 @@ function fixTiming(index) {
     var newtimes = {};
     newtimes.api = 0;
     newtimes.worker = times.worker - base;
-    newtimes.execute = times.execute - base;
+    newtimes.queue = times.queue - base;
     newtimes.runtime = times.runtime - base;
     newtimes.function = times.function-base;
     newtimes.result = times.result - base;
@@ -438,7 +438,10 @@ function transmitRuntime(img) {
 
     logger.verbose(`TRANSMITTING RUNTIME ${img}`);
 
-    sockPub.send(`RUNTIME///${img}`);
+    var sendMsg = {}
+    sendMsg.msgType = 'runtime';
+    sendMsg.content = img;
+    sockPub.send(JSON.stringify(sendMsg));
 
 }
 
@@ -446,7 +449,10 @@ function transmitFunction(func) {
 
     logger.verbose(`TRANSMITTING FUNCTION ${func}`);
 
-    sockPub.send(`FUNCTION///${func}`);
+    var sendMsg = {}
+    sendMsg.msgType = 'function';
+    sendMsg.content = func;
+    sockPub.send(JSON.stringify(sendMsg));
 
 }
 
@@ -454,7 +460,10 @@ function transmitCall(call) {
 
     logger.verbose(`TRANSMITTING CALL ${call}`);
 
-    sockPub.send(`INVOKE///${call}`);
+    var sendMsg = {}
+    sendMsg.msgType = 'call';
+    sendMsg.content = call;
+    sockPub.send(JSON.stringify(sendMsg));
 
 }
 

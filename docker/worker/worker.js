@@ -126,9 +126,8 @@ if (invokePolicy == 'PRELOAD_RUNTIME') {
 // Functions
 //----------------------------------------------------------------------------------//
 
-function processRuntime(arrayMsg) {
+function processRuntime(img) {
 
-    var img = arrayMsg[1]
     logger.verbose(`RECEIVED RUNTIME ${img}`);
     runtimePool.push(img);
     logger.debug(runtimePool);
@@ -139,9 +138,8 @@ function processRuntime(arrayMsg) {
 
 }
 
-function processFunction(arrayMsg) {
+function processFunction(funcName) {
 
-    var funcName = arrayMsg[1]
     logger.verbose(`RECEIVED FUNCTION ${funcName}`);
     functionPool.push(funcName);
     fetchFunction(funcName);
@@ -179,9 +177,8 @@ function storeFunction(body) {
 
 }
 
-function processCall(arrayMsg) {
+function processCall(callNum) {
 
-    callNum = arrayMsg[1]
     logger.verbose(`INVOKE ${callNum}`);
 
     //FIXME: adecuar. quizas tiene sentido que llegue de una desde la API.
@@ -312,7 +309,7 @@ function selectFirstAvailable() {
 function executeNoPreload(callObject, spot) {
 
     var timing = new Date().getTime();
-    callObject.insertedCall.timing.execute = timing;
+    callObject.insertedCall.timing.queue = timing;
 
     logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
 
@@ -515,6 +512,9 @@ function backFromExecution(spot) {
         .then(() => {
             logger.debug('RUNTIME READY IN SPOT ' + spot);
 
+            var timing = new Date().getTime();
+            spots['spot' + spot].runtimeTiming = timing;
+
             if(spots['spot' + spot].buffer != null){
 
                 logger.verbose('BUFFER FOUND IN SPOT ' + spot);
@@ -598,6 +598,10 @@ function execRtPreloaded(callObject, spot){
     invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
         .then((insertedCall) => {
             logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+
+            insertedCall.timing.runtime = spots['spot' + spot].runtimeTiming;
+            spots['spot' + spot].runtimeTiming=null;
+
             // Updatear la DB
 
             var sendMsg = {}
@@ -613,10 +617,6 @@ function execRtPreloaded(callObject, spot){
         });
 }
 
-// TODO: pool for available rts and functions. Auto management of each pool
-// TODO: fetch info to the DB and save it.
-// TODO: get the calls and invoke as needed. 
-
 
 // Event handling
 //----------------------------------------------------------------------------------//
@@ -628,18 +628,17 @@ sockReq.on('message', function (msg) {
 sockSub.on('message', function (msg) {
     logger.verbose(`MESSAGE PUB ${msg}`);
 
-    stMsg = msg.toString();
-    var arrayMsg = stMsg.split('///');
+    msg = JSON.parse(msg);
 
-    switch (arrayMsg[0]) {
-        case 'RUNTIME':
-            processRuntime(arrayMsg);
+    switch (msg.msgType) {
+        case 'runtime':
+            processRuntime(msg.content);
             break;
-        case 'FUNCTION':
-            processFunction(arrayMsg);
+        case 'function':
+            processFunction(msg.content);
             break;
-        case 'INVOKE':
-            processCall(arrayMsg);
+        case 'call':
+            processCall(msg.content);
             break;
     }
 
