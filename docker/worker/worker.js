@@ -103,8 +103,6 @@ const invokePolicy = faasConf.invokePolicy;
 
 const windowTime = 300000;
 
-var init = false;
-
 if (invokePolicy == 'PRELOAD_RUNTIME') {
 
     logger.verbose('preload runtime data structures');
@@ -479,17 +477,19 @@ function backFromExecution(spot) {
 
     // check if there are calls in the queue
 
-    if (callQueue.length != 0) {
-        callObject = callQueue.shift();
-        spots['spot' + spot].callNum = callObject.callNum;
-        spots['spot' + spot].status = 'ASSIGNED';
-
-        logger.debug(`SPOTS ${JSON.stringify(spots)}`);
-
-        executeNoPreload(callObject, spot);
-        refreshSpots(false);
-
-        return;
+    if (callQueue.length > 0) {
+        try {
+            callObject = callQueue.shift();
+            spots['spot' + spot].callNum = callObject.callNum;
+            spots['spot' + spot].status = 'ASSIGNED';
+    
+            logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+    
+            executeNoPreload(callObject, spot);
+            refreshSpots(false);
+        } catch (err){
+            logger.error(err);
+        }
     } else {
         spots['spot' + spot].callNum = '';
         spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * concLevel + spot}`;
@@ -551,6 +551,8 @@ function checkRuntimeAvailable(callObject) {
     // Recorrer todos los spots para ver si hay alguno que tenga el runtime del callobject.
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
+    var allCorrect = true;
+
     for (i = 0; i < concLevel; i++) {
         var index = 'spot' + i;
         if (spots[index].content == callObject.runtime) {
@@ -578,6 +580,8 @@ function checkRuntimeAvailable(callObject) {
                 return;
             }
 
+        } else {
+            allCorrect = false;
         }
     }
 
@@ -587,7 +591,9 @@ function checkRuntimeAvailable(callObject) {
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
 
-    refreshSpots(false);
+    if (!allCorrect){
+        refreshSpots(false);
+    }
 
     // FIXME: HAcer un refresh a mano. Pillar el primer runtime o loading rt, borrarlo y meterle un backfrom exec.
 
@@ -638,7 +644,7 @@ sockSub.on('message', function (msg) {
             processFunction(msg.content);
             break;
         case 'call':
-            processCall(msg.content);
+            prepareCall(msg.content);
             break;
     }
 

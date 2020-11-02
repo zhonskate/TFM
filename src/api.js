@@ -373,7 +373,7 @@ app.post('/invokeFunction', async function (req, res) {
     sendMsg.content = insert;
     sockDB.send(JSON.stringify(sendMsg));
 
-    transmitCall(callNum);
+    transmitCall(insert);
 
     index = 'c' + callNum;
 
