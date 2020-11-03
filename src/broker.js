@@ -6,6 +6,7 @@ const logger = require('winston');
 var invoke = require('./invoke');
 var utils = require('./utils');
 const fs = require('fs');
+var zookeeper = require('node-zookeeper-client');
 
 
 // Load faas-conf
@@ -26,7 +27,7 @@ logger.level = faasConf.logger;
 const myformat = logger.format.combine(
     logger.format.colorize(),
     logger.format.timestamp(),
-    logger.format.printf(info => `[WRK] ${info.timestamp} ${info.level}: ${info.message}`)
+    logger.format.printf(info => `[BKR] ${info.timestamp} ${info.level}: ${info.message}`)
 );
 
 const files = new logger.transports.File({
@@ -54,19 +55,43 @@ const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
-logger.info(`Worker Req connected to ${addressReq}`);
+logger.info(`Broker Req connected to ${addressReq}`);
 
 var sockSub = zmq.socket('sub');
 sockSub.connect(addressSub);
 sockSub.subscribe('');
-logger.info(`Worker Sub connected to ${addressSub}`);
+logger.info(`Broker Sub connected to ${addressSub}`);
 
 var sockDB = zmq.socket('req');
 sockDB.connect(addressDB);
-logger.info(`Worker Sub connected to ${addressDB}`);
+logger.info(`Broker Sub connected to ${addressDB}`);
+
+
+//Zookeeper
+
+var zookeeperAddress = 'localhost:2181';
+
+var zooConnected = false;
+
+var zClient = zookeeper.createClient(zookeeperAddress);
+
+zClient.once('connected', function () {
+    logger.info(`Connected to zookeeper on address ${zookeeperAddress}`);
+    zooConnected = true;
+});
+
+while(!zooConnected) {
+    await sleep(1000);
+    logger.info('Trying to connect to zookeeper');
+}
 
 
 // Data structures
+
+// Workers
+
+var workerStore = {};
+var workerCount;
 
 // Pool of available runtime names
 var runtimePool = [];
@@ -82,7 +107,6 @@ var functionStore = {};
 
 // Available spots;
 
-const concLevel = 8;
 var spots = {};
 freeSpots = [];
 
@@ -122,6 +146,40 @@ if (invokePolicy == 'PRELOAD_RUNTIME') {
 
 // Functions
 //----------------------------------------------------------------------------------//
+
+// ZOOKEEPER
+
+function registerWorker(availableSpots){
+
+    // register its spots and send back its ID
+    var workerId = 'worker' + workerCount;
+
+    logger.verbose(`Registering ${workerId}`)
+
+    createPath(workerId);
+
+    for (i = 0; i < availableSpots; i++) {
+        var pathName = workerId + '/' + i;
+        createPath(pathName);
+    }
+    
+    // TODO: return the workerId to identify the worker.
+
+}
+
+function createPath(path){
+
+    client.create(path, function (error) {
+        if (error) {
+            logger.error('Failed to create node: %s due to: %s.', path, error);
+        } else {
+            logger.verbose('Node: %s is successfully created.', path);
+        }
+    });
+
+}
+
+// API-COMMON
 
 function processRuntime(img) {
 
@@ -174,23 +232,6 @@ function storeFunction(body) {
 
 }
 
-function processCall(callNum) {
-
-    // DEPRECATED
-
-    logger.verbose(`INVOKE ${callNum}`);
-
-    //FIXME: adecuar. quizas tiene sentido que llegue de una desde la API.
-
-    // get the call info
-
-    var sendMsg = {}
-    sendMsg.msgType = 'fetchCall';
-    sendMsg.content = callNum;
-    sockDB.send(JSON.stringify(sendMsg));
-
-}
-
 function prepareCall(body) {
 
     var timing = new Date().getTime();
@@ -216,21 +257,21 @@ function prepareCall(body) {
     // save the parameters to a file
 
     // create the folder
-    let commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
-    utils.executeSync(logger, commandline);
+    // let commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
+    // utils.executeSync(logger, commandline);
 
     // add an info file
-    let fileObject = {
-        "runtime": functionObj.runtimeName,
-        "function": funcName
-    };
+    // let fileObject = {
+    //     "runtime": functionObj.runtimeName,
+    //     "function": funcName
+    // };
 
-    commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
-    utils.executeSync(logger, commandline);
+    // commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
+    // utils.executeSync(logger, commandline);
 
-    // create the params file
-    commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
-    utils.executeSync(logger, commandline);
+    // // create the params file
+    // commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
+    // utils.executeSync(logger, commandline);
 
     // prepare the object
 
@@ -263,6 +304,9 @@ function enqueueCall(callObject) {
 
 }
 
+
+// NO PRELOAD
+
 function checkSpots() {
 
     // check if there are calls in the queue
@@ -274,14 +318,9 @@ function checkSpots() {
 
     // check if the call has a suitable spot
 
-    // FIXME: Revisar esto. En un futuro va a depender de las preloads, etc. Harán falta mas data structures.
-
     if (freeSpots.length == 0) {
         logger.verbose('No available spots');
-        return;
-    }
-
-    if (invokePolicy == "PRELOAD_NOTHING") {
+    } else {
         selectFirstAvailable();
     }
 
@@ -348,6 +387,9 @@ function liberateSpot(spot) {
     checkSpots();
 
 }
+
+
+// PRELOAD RUNTIME
 
 function checkWindows() {
 
@@ -596,8 +638,6 @@ function checkRuntimeAvailable(callObject) {
         refreshSpots(false);
     }
 
-    // FIXME: HAcer un refresh a mano. Pillar el primer runtime o loading rt, borrarlo y meterle un backfrom exec.
-
 }
 
 function execRtPreloaded(callObject, spot){
@@ -623,6 +663,9 @@ function execRtPreloaded(callObject, spot){
             backFromExecution(spot);
         });
 }
+
+
+// PRELOAD FUNCTION
 
 
 // Event handling
@@ -667,5 +710,3 @@ sockDB.on('message', function (msg) {
     }
     //TODO: get the func info.
 });
-
-//sockReq.send("worker1");

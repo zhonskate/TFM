@@ -17,6 +17,7 @@
     "logger": "0.0.1",
     "lokijs": "^1.5.10",
     "multer": "^1.4.2",
+    "node-zookeeper-client": "^1.1.0",
     "winston": "^3.3.3",
     "zeromq": "^5.2.0"
   }
