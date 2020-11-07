@@ -3,7 +3,9 @@
     "zmq": {
         "apiRep": 2000,
         "apiPub": 2001,
-        "db": 2002 
+        "db": 2002,
+        "rou": 2003,
+        "reqbrk": 2004
     },
     "express":3000,
     "registry":{

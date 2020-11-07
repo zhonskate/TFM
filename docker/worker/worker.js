@@ -16,7 +16,6 @@ var content = fs.readFileSync('./faas-conf.json');
 const faasConf = JSON.parse(content);
 
 
-
 // Declarations
 //----------------------------------------------------------------------------------//
 
@@ -52,6 +51,8 @@ const registryPort = faasConf.registry.port;
 const addressReq = `tcp://faas-api:${faasConf.zmq.apiRep}`;
 const addressSub = `tcp://faas-api:${faasConf.zmq.apiPub}`;
 const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
+const addressRou = `tcp://faas-broker:${faasConf.zmq.rou}`;
+const addressReqBrk = `tcp://faas-broker:${faasConf.zmq.reqbrk}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
@@ -65,6 +66,15 @@ logger.info(`Worker Sub connected to ${addressSub}`);
 var sockDB = zmq.socket('req');
 sockDB.connect(addressDB);
 logger.info(`Worker Sub connected to ${addressDB}`);
+
+var sockRou = zmq.socket('dealer');
+//sockRou.identity = 'worker0';
+sockRou.connect(addressRou);
+logger.info(`Worker Dealer connected to ${addressRou}`);
+
+var sockReqBrk = zmq.socket('req');
+sockReqBrk.connect(addressReqBrk);
+logger.info(`Worker Req service connected to ${addressReqBrk}`);
 
 
 // Data structures
@@ -176,6 +186,8 @@ function storeFunction(body) {
 }
 
 function processCall(callNum) {
+
+    // DEPRECATED
 
     logger.verbose(`INVOKE ${callNum}`);
 
@@ -354,19 +366,19 @@ function checkWindows() {
 
     logger.verbose('CHECKING WINDOW');
 
-    var now = new Date().getTime(); 
+    var now = new Date().getTime();
     var limit = now - windowTime;
 
 
     // Updatear la widowArray trimming todo lo que sea mas viejo que now - windowTime.
 
-    while(windowArray.length > 0 && windowArray[0][1] < limit){
+    while (windowArray.length > 0 && windowArray[0][1] < limit) {
         windowArray.shift();
     }
 
     // si la array está vacía -> target = baseTarget.
 
-    if (windowArray.length == 0){
+    if (windowArray.length == 0) {
         target = baseTarget;
     } else {
 
@@ -379,7 +391,9 @@ function checkWindows() {
 
         logger.debug(`counts ${JSON.stringify(counts)}`);
 
-        countsSorted = Object.keys(counts).sort(function(a,b){return counts[b] - counts[a]})
+        countsSorted = Object.keys(counts).sort(function (a, b) {
+            return counts[b] - counts[a]
+        })
 
         //FIXME: todo en general
 
@@ -391,16 +405,16 @@ function checkWindows() {
         var assigned = 0;
         var mark = 0;
 
-        while (assigned < concLevel){
+        while (assigned < concLevel) {
 
             logger.info(`${countsSorted[mark]} ${(counts[countsSorted[mark]] / windowArray.length)} %`);
 
-            var assignations = Math.round((counts[countsSorted[mark]] / windowArray.length)*concLevel);
+            var assignations = Math.round((counts[countsSorted[mark]] / windowArray.length) * concLevel);
             assignations = assignations + assigned
-            
+
             for (var i = assigned; i < assignations && assigned < concLevel; i++) {
                 target['spot' + i] = [countsSorted[mark]];
-                assigned  = assigned + 1;
+                assigned = assigned + 1;
             }
 
             mark = mark + 1
@@ -419,33 +433,33 @@ function checkWindows() {
 
 }
 
-async function refreshSpots(allRuntimes){
+async function refreshSpots(allRuntimes) {
 
-    while (target['spot0'] == null){
+    while (target['spot0'] == null) {
         setTimeout(function () {
             logger.debug('target not set')
         }, 1000);
-    } 
+    }
 
     logger.verbose('REFRESHING SPOTS');
     for (i = 0; i < concLevel; i++) {
-        if(spots['spot' + i ].status == null){
+        if (spots['spot' + i].status == null) {
             backFromExecution(i);
-        } else if(spots['spot' + i ].status == 'EXECUTING' || spots['spot' + i ].status == 'ASSIGNED'){
+        } else if (spots['spot' + i].status == 'EXECUTING' || spots['spot' + i].status == 'ASSIGNED') {
             continue;
-        } else if(spots['spot' + i ].status == 'LOADING_RT'){
+        } else if (spots['spot' + i].status == 'LOADING_RT') {
             continue;
         } else {
 
             // FIXME: tener en cuenta los runtimes cargados que estén en su sitio.
 
-            if(spots['spot' + i ].containerName != null && spots['spot' + i ].content != null){
+            if (spots['spot' + i].containerName != null && spots['spot' + i].content != null) {
 
                 logger.verbose('EMPTYING SPOT ' + i);
 
-                await invoke.forceDelete(logger, spots['spot' + i ].containerName, spots['spot' + i ].content)
+                await invoke.forceDelete(logger, spots['spot' + i].containerName, spots['spot' + i].content)
                 backFromExecution(i);
-                if(!allRuntimes){
+                if (!allRuntimes) {
                     return;
                 }
             }
@@ -482,12 +496,12 @@ function backFromExecution(spot) {
             callObject = callQueue.shift();
             spots['spot' + spot].callNum = callObject.callNum;
             spots['spot' + spot].status = 'ASSIGNED';
-    
+
             logger.debug(`SPOTS ${JSON.stringify(spots)}`);
-    
+
             executeNoPreload(callObject, spot);
             refreshSpots(false);
-        } catch (err){
+        } catch (err) {
             logger.error(err);
         }
     } else {
@@ -503,38 +517,38 @@ function backFromExecution(spot) {
             "runtime": target['spot' + spot],
             "registryIP": registryIP,
             "registryPort": registryPort,
-            "containerName":  spots['spot' + spot].containerName
+            "containerName": spots['spot' + spot].containerName
         }
 
         // FIXME: si se lanza antes de que se caiga el preload anterior es posible que pete. inventar solve
 
-        invoke.preloadRuntime(logger,callObject)
-        .then(() => {
-            logger.debug('RUNTIME READY IN SPOT ' + spot);
+        invoke.preloadRuntime(logger, callObject)
+            .then(() => {
+                logger.debug('RUNTIME READY IN SPOT ' + spot);
 
-            var timing = new Date().getTime();
-            spots['spot' + spot].runtimeTiming = timing;
+                var timing = new Date().getTime();
+                spots['spot' + spot].runtimeTiming = timing;
 
-            if(spots['spot' + spot].buffer != null){
+                if (spots['spot' + spot].buffer != null) {
 
-                logger.verbose('BUFFER FOUND IN SPOT ' + spot);
+                    logger.verbose('BUFFER FOUND IN SPOT ' + spot);
 
-                callObject = spots['spot' + spot].buffer;
+                    callObject = spots['spot' + spot].buffer;
 
-                spots['spot' + spot].callNum = callObject.callNum;
-                spots['spot' + spot].status = 'EXECUTING';
+                    spots['spot' + spot].callNum = callObject.callNum;
+                    spots['spot' + spot].status = 'EXECUTING';
 
-                spots['spot' + spot].buffer = null;
+                    spots['spot' + spot].buffer = null;
 
-                callObject.containerName = spots['spot' + spot].containerName;
+                    callObject.containerName = spots['spot' + spot].containerName;
 
-                logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+                    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-                execRtPreloaded(callObject, spot);
-            } else {
-                spots['spot' + spot].status = 'RUNTIME';
-            }
-        });
+                    execRtPreloaded(callObject, spot);
+                } else {
+                    spots['spot' + spot].status = 'RUNTIME';
+                }
+            });
 
     }
 
@@ -557,15 +571,15 @@ function checkRuntimeAvailable(callObject) {
         var index = 'spot' + i;
         if (spots[index].content == callObject.runtime) {
 
-            if (spots[index].status == 'LOADING_RT' && spots[index].buffer == null){
+            if (spots[index].status == 'LOADING_RT' && spots[index].buffer == null) {
 
                 // Espero al runtime
 
-                spots[index].buffer = callObject; 
+                spots[index].buffer = callObject;
 
                 return;
 
-            }else if (spots[index].status == 'RUNTIME'){
+            } else if (spots[index].status == 'RUNTIME') {
                 // Si es así cambiar el status del spot y ejecutar.
 
                 spots[index].callNum = callObject.callNum;
@@ -576,7 +590,7 @@ function checkRuntimeAvailable(callObject) {
                 logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
                 execRtPreloaded(callObject, i);
-                
+
                 return;
             }
 
@@ -591,7 +605,7 @@ function checkRuntimeAvailable(callObject) {
     logger.debug('PUSHED TO CALLQUEUE');
     logger.debug(JSON.stringify(callQueue));
 
-    if (!allCorrect){
+    if (!allCorrect) {
         refreshSpots(false);
     }
 
@@ -599,14 +613,14 @@ function checkRuntimeAvailable(callObject) {
 
 }
 
-function execRtPreloaded(callObject, spot){
-    
+function execRtPreloaded(callObject, spot) {
+
     invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
         .then((insertedCall) => {
             logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
 
             insertedCall.timing.runtime = spots['spot' + spot].runtimeTiming;
-            spots['spot' + spot].runtimeTiming=null;
+            spots['spot' + spot].runtimeTiming = null;
 
             // Updatear la DB
 
@@ -621,6 +635,14 @@ function execRtPreloaded(callObject, spot){
 
             backFromExecution(spot);
         });
+}
+
+function registeredWorker (workerId){
+    logger.verbose(`setting identity ${workerId}`);
+    sockRou.identity = workerId;
+    var sendMsg = {}
+    sendMsg.msgType = 'ready';
+    sockRou.send(JSON.stringify(sendMsg));
 }
 
 
@@ -667,4 +689,29 @@ sockDB.on('message', function (msg) {
     //TODO: get the func info.
 });
 
-//sockReq.send("worker1");
+sockRou.on('message', function (msg) {
+    logger.verbose(`MESSAGE ROU ${msg}`);
+    msg = JSON.parse(msg);
+
+    switch (msg.msgType) {
+        case 'fetchedFunction':
+            storeFunction(msg.content);
+            break;
+    }
+});
+
+sockReqBrk.on('message', function (msg) {
+    logger.verbose(`MESSAGE REQBRK ${msg}`);
+    msg = JSON.parse(msg);
+
+    switch (msg.msgType) {
+        case 'response':
+            registeredWorker(msg.content);
+            break;
+    }
+});
+
+var regWrk = {}
+regWrk.msgType = 'register';
+regWrk.content = concLevel;
+sockReqBrk.send(JSON.stringify(regWrk));

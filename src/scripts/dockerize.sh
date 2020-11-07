@@ -7,6 +7,14 @@ cp ../utils.js ../../docker/worker
 cp ../faas-conf.json ../../docker/worker
 docker build -t faas-worker ../../docker/worker
 
+# build the broker
+
+cp ../broker.js ../../docker/broker
+cp ../invoke.js ../../docker/broker
+cp ../utils.js ../../docker/broker
+cp ../faas-conf.json ../../docker/broker
+docker build -t faas-broker ../../docker/broker
+
 # build the db
 
 cp ../db.js ../../docker/db

@@ -16,6 +16,11 @@ echo 'launching faas-registry...'
 
 docker run -d -v faasRegistry:/var/lib/registry -p 5000:5000 --name faas-registry registry:2
 
+echo 'launching zookeeper'
+
+docker run -d --net=faas --name faas-zookeeper zookeeper:3.4
+# docker run -d -p 2181:2181 --name faas-zookeeper zookeeper:3.4
+
 echo 'launching faas-api...'
 
 docker run -d -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v log-vol:/ws/logs -v uploads-vol:/ws/uploads --net=faas --name faas-api faas-api
@@ -23,6 +28,10 @@ docker run -d -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v log-v
 echo 'launching faas-db...'
 
 docker run -d -v log-vol:/ws/logs --net=faas --name faas-db faas-db
+
+echo 'launching faas-broker...'
+
+docker run -d -v log-vol:/ws/logs --net=faas --name faas-broker faas-broker
 
 echo 'launching faas-worker...'
 
