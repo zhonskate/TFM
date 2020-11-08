@@ -10,6 +10,7 @@ var zookeeper = require('node-zookeeper-client');
 const {
     env
 } = require('process');
+const { loggers } = require('winston');
 
 
 // Load faas-conf
@@ -232,18 +233,21 @@ async function createPath(path) {
 
 async function getContent(path) {
 
-    await waitForZookeeper();
+    return new Promise((resolve, reject) => {
 
-    zClient.getData(path, function (event) {
-        logger.verbose(`Got event: ${event}.`);
-    }, function (error, data, stat) {
-        if (error) {
-            logger.error(error.stack);
-            return;
-        }
+        waitForZookeeper();
 
-        logger.verbose(`Got data: ${data}`);
-        return data;
+        zClient.getData(path, function (event) {
+            logger.verbose(`Got event: ${event}.`);
+        }, function (error, data, stat) {
+            if (error) {
+                logger.error(error.stack);
+                reject(error.stack);
+            }
+
+            logger.verbose(`Got data: ${data}`);
+            resolve(data);
+        });
     });
 }
 
@@ -259,7 +263,7 @@ async function setContent(path, data) {
             return;
         }
 
-        logger.verbose('Data is set.');
+        logger.verbose(`Data ${JSON.stringify(data)} is set. ${JSON.stringify(stat)}`);
     });
 
 }
@@ -391,6 +395,8 @@ async function checkSpots() {
 
     var spot = await getFirstFreeSpot();
 
+    logger.info(`SELECTED SPOT ${spot}`);
+
     if (spot == -1) {
         logger.verbose('No available spots');
     } else {
@@ -433,7 +439,7 @@ async function getFirstFreeSpot(){
         for (j in workerStore[workerId].spots){
             var content = await getContent(`/${workerId}/${j}`);
             logger.debug(`CONTENT ${content}`);
-            if(content == {} || content == undefined){
+            if(content == '{}' || content == undefined){
                 await setContent(`/${workerId}/${j}`, {'status':'occupied'});
                 return j;
             }
