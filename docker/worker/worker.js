@@ -185,46 +185,13 @@ function storeFunction(body) {
 
 }
 
-function processCall(callNum) {
-
-    // DEPRECATED
-
-    logger.verbose(`INVOKE ${callNum}`);
-
-    //FIXME: adecuar. quizas tiene sentido que llegue de una desde la API.
-
-    // get the call info
-
-    var sendMsg = {}
-    sendMsg.msgType = 'fetchCall';
-    sendMsg.content = callNum;
-    sockDB.send(JSON.stringify(sendMsg));
-
-}
-
-function prepareCall(body) {
-
-    var timing = new Date().getTime();
-    body.timing.worker = timing;
-
-    logger.verbose(`PREPARING CALL ${JSON.stringify(body)}`);
-
-    const callNum = body.callNum;
-    const funcName = body.funcName;
-    const params = body.params;
-
-    logger.debug(`eC funcName ${funcName}`);
-
-    const functionObj = functionStore[funcName].function;
-    const runtimeObj = functionStore[funcName].runtime;
-
-    const containerPath = runtimeObj.path;
-    const runtimeRunCmd = runtimeObj.run;
-    const runtimeDeps = runtimeObj.dependencies;
-    logger.debug(`object runtime ${JSON.stringify(runtimeObj)}`);
-    logger.debug(`container path ${containerPath}`);
-
+function prepCall(callObject) {
     // save the parameters to a file
+
+    const callNum = callObject.callNum;
+    const runtime = callObject.runtime;
+    const funcName = callObject.funcName;
+    const params = callObject.insertedCall.params;
 
     // create the folder
     let commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
@@ -232,7 +199,7 @@ function prepareCall(body) {
 
     // add an info file
     let fileObject = {
-        "runtime": functionObj.runtimeName,
+        "runtime": runtime,
         "function": funcName
     };
 
@@ -242,25 +209,6 @@ function prepareCall(body) {
     // create the params file
     commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
     utils.executeSync(logger, commandline);
-
-    // prepare the object
-
-    let callObject = {
-        "runtime": functionObj.runtimeName,
-        "registry": `${registryIP}:${registryPort}`,
-        "callNum": callNum,
-        "funcName": funcName,
-        "containerPath": containerPath,
-        "runtimeDeps": runtimeDeps,
-        "runtimeRunCmd": runtimeRunCmd,
-        "insertedCall": body
-    }
-
-    if (invokePolicy == 'PRELOAD_NOTHING') {
-        enqueueCall(callObject);
-    } else if (invokePolicy == 'PRELOAD_RUNTIME') {
-        checkRuntimeAvailable(callObject);
-    }
 
 }
 
@@ -318,6 +266,8 @@ function selectFirstAvailable() {
 
 function executeNoPreload(callObject, spot) {
 
+    prepCall(callObject);
+
     var timing = new Date().getTime();
     callObject.insertedCall.timing.queue = timing;
 
@@ -351,12 +301,10 @@ function executeNoPreload(callObject, spot) {
 function liberateSpot(spot) {
 
     logger.verbose(`Liberating spot ${spot}`);
-    freeSpots.push(spot);
-    spots['spot' + spot] = {};
-
-    logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
-
-    checkSpots();
+    var sendMsg = {}
+    sendMsg.msgType = 'liberateSpot';
+    sendMsg.content = spot;
+    sockRou.send(JSON.stringify(sendMsg));
 
 }
 
@@ -637,12 +585,23 @@ function execRtPreloaded(callObject, spot) {
         });
 }
 
-function registeredWorker (workerId){
+function registeredWorker(content) {
+    workerId = content.workerId;
+    recSpots = content.spots;
     logger.verbose(`setting identity ${workerId}`);
     sockRou.identity = workerId;
+
     var sendMsg = {}
     sendMsg.msgType = 'ready';
+    sendMsg.content = workerId;
     sockRou.send(JSON.stringify(sendMsg));
+
+    for(i in recSpots){
+        var sendMsg = {}
+        sendMsg.msgType = 'liberateSpot';
+        sendMsg.content = i;
+        sockRou.send(JSON.stringify(sendMsg));
+    }
 }
 
 
@@ -666,7 +625,7 @@ sockSub.on('message', function (msg) {
             processFunction(msg.content);
             break;
         case 'call':
-            prepareCall(msg.content);
+            // prepareCall(msg.content);
             break;
     }
 
@@ -681,7 +640,7 @@ sockDB.on('message', function (msg) {
             storeFunction(msg.content);
             break;
         case 'fetchedCall':
-            prepareCall(msg.content);
+            // prepareCall(msg.content);
             break;
         case 'callInserted':
             break;
@@ -694,8 +653,8 @@ sockRou.on('message', function (msg) {
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {
-        case 'fetchedFunction':
-            storeFunction(msg.content);
+        case 'executeNoPreload':
+            executeNoPreload(msg.content, msg.spot);
             break;
     }
 });

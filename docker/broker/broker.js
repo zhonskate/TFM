@@ -106,7 +106,7 @@ const waitForZookeeper = () => {
 
         let currentAttempt = 0
         const interval = setInterval(() => {
-            
+
             if (zooConnected) {
                 clearInterval(interval)
                 resolve();
@@ -148,9 +148,9 @@ var functionStore = {};
 // Available spots;
 
 var spots = {};
-freeSpots = [];
+//freeSpots = [];
 
-logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
 // Other
 
@@ -191,26 +191,27 @@ async function registerWorker(availableSpots) {
 
     logger.verbose(`Registering ${workerId}`)
 
-    workerStore.workerId = {}
-    workerStore.workerId.spots = []
+    workerStore[workerId] = {}
+    workerStore[workerId].spots = []
 
     await createPath('/' + workerId);
 
     for (i = 0; i < availableSpots; i++) {
         var pathName = '/' + workerId + '/' + i;
         await createPath(pathName);
-        workerStore.workerId.spots.push(spotCount);
-        spotCount = spotCount + 1;
+        workerStore[workerId].spots.push(spotCount);
         spots['spot' + spotCount] = {};
         spots['spot' + spotCount].multiplier = 0;
         spots['spot' + spotCount].parent = workerId;
-        freeSpots.push(i);
+        spotCount = spotCount + 1;
     }
 
     // TODO: return the workerId to identify the worker.
     var sendMsg = {}
     sendMsg.msgType = 'response';
-    sendMsg.content = workerId;
+    sendMsg.content = {};
+    sendMsg.content.workerId = workerId;
+    sendMsg.content.spots = workerStore[workerId].spots;
     sockReqBrk.send(JSON.stringify(sendMsg));
 
 }
@@ -241,7 +242,7 @@ async function getContent(path) {
             return;
         }
 
-        logger.verbose('Got data: %s', data.toString('utf8'));
+        logger.verbose(`Got data: ${data}`);
         return data;
     });
 }
@@ -338,25 +339,6 @@ function prepareCall(body) {
     logger.debug(`object runtime ${JSON.stringify(runtimeObj)}`);
     logger.debug(`container path ${containerPath}`);
 
-    // save the parameters to a file
-
-    // create the folder
-    // let commandline = `mkdir -p ${CALLS_PATH}/${callNum}`;
-    // utils.executeSync(logger, commandline);
-
-    // add an info file
-    // let fileObject = {
-    //     "runtime": functionObj.runtimeName,
-    //     "function": funcName
-    // };
-
-    // commandline = `echo '${JSON.stringify(fileObject)}' > ${CALLS_PATH}/${callNum}/info.json`
-    // utils.executeSync(logger, commandline);
-
-    // // create the params file
-    // commandline = `echo '${JSON.stringify(params)}' > ${CALLS_PATH}/${callNum}/input.json`
-    // utils.executeSync(logger, commandline);
-
     // prepare the object
 
     let callObject = {
@@ -388,10 +370,15 @@ function enqueueCall(callObject) {
 
 }
 
+function storeWorker(envelope, worker){
+    logger.info(`STORE WORKER ${worker} // ${JSON.stringify(workerStore)}`);
+    workerStore[worker].env = envelope;
+}
+
 
 // NO PRELOAD
 
-function checkSpots() {
+async function checkSpots() {
 
     // check if there are calls in the queue
 
@@ -402,80 +389,100 @@ function checkSpots() {
 
     // check if the call has a suitable spot
 
-    if (freeSpots.length == 0) {
+    var spot = await getFirstFreeSpot();
+
+    if (spot == -1) {
         logger.verbose('No available spots');
     } else {
-        selectFirstAvailable();
+        selectFirstAvailable(spot);
     }
 
 }
 
-async function selectFirstAvailable() {
+async function selectFirstAvailable(spot) {
 
     // Select the call 
 
     callObject = callQueue.shift();
-
-    // Select and assign the spot
-
-    spot = freeSpots.shift();
-
-    //TODO: Get worker parent of spot
 
     parent = spots['spot' + spot].parent;
 
     spots['spot' + spot].callNum = callObject.callNum;
     spots['spot' + spot].status = 'ASSIGNED';
 
-    await setContent(`/${parent}/${spot}/`, spots['spot' + spot]);
+    await setContent(`/${parent}/${spot}`, spots['spot' + spot]);
 
-    logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
     //executeNoPreload(callObject, spot);
 
     //TODO: Send to the worker to execute
 
+    var sendMsg = {}
+    sendMsg.msgType = 'executeNoPreload';
+    sendMsg.content = callObject;
+    sendMsg.spot = spot;
+    sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+
 }
 
-function executeNoPreload(callObject, spot) {
-
-    var timing = new Date().getTime();
-    callObject.insertedCall.timing.queue = timing;
-
-    logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
-
-    // invokation depends on policy
-
-    invoke.preloadNothing(logger, callObject, CALLS_PATH)
-        .then((insertedCall) => {
-            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-            // Updatear la DB
-
-            var sendMsg = {}
-            sendMsg.msgType = 'updateCall';
-            sendMsg.content = insertedCall;
-            sockDB.send(JSON.stringify(sendMsg));
-
-            // avisar a la API
-
-            sockReq.send(JSON.stringify(sendMsg));
-
-            if (invokePolicy == "PRELOAD_NOTHING") {
-                liberateSpot(spot);
-            } else if (invokePolicy == "PRELOAD_RUNTIME") {
-                backFromExecution(spot);
+async function getFirstFreeSpot(){
+    logger.debug(`GET FREE FIRST SPOT`);
+    for (i = 0; i < workerCount; i++){
+        workerId = 'worker' + i;
+        for (j in workerStore[workerId].spots){
+            var content = await getContent(`/${workerId}/${j}`);
+            logger.debug(`CONTENT ${content}`);
+            if(content == {} || content == undefined){
+                await setContent(`/${workerId}/${j}`, {'status':'occupied'});
+                return j;
             }
-        });
-
+        }
+    }
+    return -1;
 }
 
-function liberateSpot(spot) {
+// function executeNoPreload(callObject, spot) {
+
+//     var timing = new Date().getTime();
+//     callObject.insertedCall.timing.queue = timing;
+
+//     logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
+
+//     // invokation depends on policy
+
+//     invoke.preloadNothing(logger, callObject, CALLS_PATH)
+//         .then((insertedCall) => {
+//             logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+//             // Updatear la DB
+
+//             var sendMsg = {}
+//             sendMsg.msgType = 'updateCall';
+//             sendMsg.content = insertedCall;
+//             sockDB.send(JSON.stringify(sendMsg));
+
+//             // avisar a la API
+
+//             sockReq.send(JSON.stringify(sendMsg));
+
+//             if (invokePolicy == "PRELOAD_NOTHING") {
+//                 liberateSpot(spot);
+//             } else if (invokePolicy == "PRELOAD_RUNTIME") {
+//                 backFromExecution(spot);
+//             }
+//         });
+
+// }
+
+async function liberateSpot(envelope, spot) {
 
     logger.verbose(`Liberating spot ${spot}`);
-    freeSpots.push(spot);
-    spots['spot' + spot] = {};
 
-    logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
+    parent = spots['spot' + spot].parent;
+
+    await setContent(`/${parent}/${spot}`, {});
+
+    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
     checkSpots();
 
@@ -813,7 +820,12 @@ sockRou.on('message', function (envelope, msg) {
 
     switch (msg.msgType) {
         case 'ready':
-            logger.info('todos los spots disponibles');
+            logger.info('received envelope');
+            storeWorker(envelope, msg.content);
+            break;
+        case 'liberateSpot':
+            logger.info('liberating spot');
+            liberateSpot(envelope, msg.content);
             break;
     }
 });
