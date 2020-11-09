@@ -197,8 +197,12 @@ async function registerWorker(availableSpots) {
 
     await createPath('/' + workerId);
 
+    await createPath('/' + workerId + '/free');
+
+    await createPath('/' + workerId + '/busy');
+
     for (i = 0; i < availableSpots; i++) {
-        var pathName = '/' + workerId + '/' + i;
+        var pathName = '/' + workerId + '/busy/' + i;
         await createPath(pathName);
         workerStore[workerId].spots.push(spotCount);
         spots['spot' + spotCount] = {};
@@ -219,14 +223,19 @@ async function registerWorker(availableSpots) {
 
 async function createPath(path) {
 
-    await waitForZookeeper();
+    return new Promise((resolve, reject) => {
 
-    zClient.create(path, function (error) {
-        if (error) {
-            logger.error(`Failed to create node: ${path} due to: ${error}`);
-        } else {
-            logger.verbose(`Node: ${path} is successfully created.`);
-        }
+        waitForZookeeper();
+
+        zClient.create(path, function (error) {
+            if (error) {
+                logger.error(`Failed to create node: ${path} due to: ${error}`);
+                reject(error);
+            } else {
+                logger.verbose(`Node: ${path} is successfully created.`);
+                resolve();
+            }
+        });
     });
 
 }
@@ -259,13 +268,63 @@ async function setContent(path, data) {
 
     zClient.setData(path, buffer, -1, function (error, stat) {
         if (error) {
-            console.log(error.stack);
+            logger.error(error.stack);
             return;
         }
 
         logger.verbose(`Data ${JSON.stringify(data)} is set. ${JSON.stringify(stat)}`);
     });
 
+}
+
+async function setBusySpot(worker, spot){
+
+    return new Promise((resolve, reject) => {
+
+        logger.info(`SETTING BUSY SPOT ${spot}`);
+    
+        waitForZookeeper();
+        
+        zClient.transaction().
+        check(`/${worker}/free/${spot}`).
+        remove(`/${worker}/free/${spot}`, -1).
+        create(`/${worker}/busy/${spot}`).
+        commit(function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the transaction: ${error} , ${results}`);
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
+}
+
+async function setFreeSpot(worker, spot){
+
+    return new Promise((resolve, reject) => {
+
+        logger.info(`SETTING FREE SPOT ${spot}`);
+    
+        waitForZookeeper();
+        
+        zClient.transaction().
+        check(`/${worker}/busy/${spot}`).
+        remove(`/${worker}/busy/${spot}`, -1).
+        create(`/${worker}/free/${spot}`).
+        commit(function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the transaction: ${error} , ${results}`);
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
 }
 
 // API-COMMON
@@ -400,7 +459,14 @@ async function checkSpots() {
     if (spot == -1) {
         logger.verbose('No available spots');
     } else {
-        selectFirstAvailable(spot);
+        if (callQueue.length == 0) {
+            logger.verbose('Call queue empty');
+            parent = spots['spot' + spot].parent;
+            await setFreeSpot(parent, spot).catch((err) => { logger.error(err); });
+            return;
+        } else {
+            selectFirstAvailable(spot);
+        }
     }
 
 }
@@ -437,11 +503,11 @@ async function getFirstFreeSpot(){
     for (i = 0; i < workerCount; i++){
         workerId = 'worker' + i;
         for (j in workerStore[workerId].spots){
-            var content = await getContent(`/${workerId}/${j}`);
-            logger.debug(`CONTENT ${content}`);
-            if(content == '{}' || content == undefined){
-                await setContent(`/${workerId}/${j}`, {'status':'occupied'});
-                return j;
+            var res = await setBusySpot(workerId, j)
+                        .catch((err) => { logger.error(err); });
+            logger.debug(`RES ${res}`);
+            if(res != undefined){
+                return res;
             }
         }
     }
@@ -484,9 +550,9 @@ async function liberateSpot(envelope, spot) {
 
     logger.verbose(`Liberating spot ${spot}`);
 
-    parent = spots['spot' + spot].parent;
+    var parent = spots['spot' + spot].parent;
 
-    await setContent(`/${parent}/${spot}`, {});
+    await setFreeSpot(parent, spot).catch((err) => { logger.error(err); });
 
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
