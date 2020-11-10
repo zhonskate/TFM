@@ -201,7 +201,9 @@ async function registerWorker(availableSpots) {
 
     await createPath('/' + workerId + '/busy');
 
-    for (i = 0; i < availableSpots; i++) {
+    var currSpotCount = spotCount;
+
+    for (i = spotCount; i < currSpotCount + availableSpots; i++) {
         var pathName = '/' + workerId + '/busy/' + i;
         await createPath(pathName);
         workerStore[workerId].spots.push(spotCount);
@@ -318,6 +320,59 @@ async function setFreeSpot(worker, spot){
             if (error) {
                 logger.error(
                     `Failed to execute the transaction: ${error} , ${results}`);
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
+}
+
+async function setExecutingSpot(worker, spot, runtime){
+
+    return new Promise((resolve, reject) => {
+
+        logger.info(`SETTING EXECUTING SPOT ${spot} ${runtime}`);
+    
+        waitForZookeeper();
+        
+        zClient.transaction().
+        check(`/${worker}/busy/${spot}/loaded`).
+        remove(`/${worker}/busy/${spot}/loaded/${runtime}`, -1).
+        remove(`/${worker}/busy/${spot}/loaded`, -1).
+        create(`/${worker}/busy/${spot}/executing`).
+        commit(function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the transaction: ${error} , ${results}`);
+                    // TODO: Handle the rejection and return consequently.
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
+}
+
+async function setAssignedSpot(worker, spot){
+
+    return new Promise((resolve, reject) => {
+
+        logger.info(`SETTING EXECUTING SPOT ${spot} ${runtime}`);
+    
+        waitForZookeeper();
+        
+        zClient.transaction().
+        check(`/${worker}/busy/${spot}/executing`).
+        remove(`/${worker}/busy/${spot}/executing`, -1).
+        create(`/${worker}/busy/${spot}/assigned`).
+        commit(function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the transaction: ${error} , ${results}`);
+                    // TODO: Handle the rejection and return consequently.
                 reject();
             }
 
@@ -477,12 +532,10 @@ async function selectFirstAvailable(spot) {
 
     callObject = callQueue.shift();
 
-    parent = spots['spot' + spot].parent;
+    var parent = spots['spot' + spot].parent;
 
     spots['spot' + spot].callNum = callObject.callNum;
     spots['spot' + spot].status = 'ASSIGNED';
-
-    await setContent(`/${parent}/${spot}`, spots['spot' + spot]);
 
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
@@ -500,10 +553,10 @@ async function selectFirstAvailable(spot) {
 
 async function getFirstFreeSpot(){
     logger.debug(`GET FREE FIRST SPOT`);
-    for (i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++){
         workerId = 'worker' + i;
-        for (j in workerStore[workerId].spots){
-            var res = await setBusySpot(workerId, j)
+        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+            var res = await setBusySpot(workerId, workerStore[workerId].spots[j])
                         .catch((err) => { logger.error(err); });
             logger.debug(`RES ${res}`);
             if(res != undefined){
@@ -514,39 +567,7 @@ async function getFirstFreeSpot(){
     return -1;
 }
 
-// function executeNoPreload(callObject, spot) {
-
-//     var timing = new Date().getTime();
-//     callObject.insertedCall.timing.queue = timing;
-
-//     logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
-
-//     // invokation depends on policy
-
-//     invoke.preloadNothing(logger, callObject, CALLS_PATH)
-//         .then((insertedCall) => {
-//             logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
-//             // Updatear la DB
-
-//             var sendMsg = {}
-//             sendMsg.msgType = 'updateCall';
-//             sendMsg.content = insertedCall;
-//             sockDB.send(JSON.stringify(sendMsg));
-
-//             // avisar a la API
-
-//             sockReq.send(JSON.stringify(sendMsg));
-
-//             if (invokePolicy == "PRELOAD_NOTHING") {
-//                 liberateSpot(spot);
-//             } else if (invokePolicy == "PRELOAD_RUNTIME") {
-//                 backFromExecution(spot);
-//             }
-//         });
-
-// }
-
-async function liberateSpot(envelope, spot) {
+async function liberateSpot(spot) {
 
     logger.verbose(`Liberating spot ${spot}`);
 
@@ -564,8 +585,6 @@ async function liberateSpot(envelope, spot) {
 // PRELOAD RUNTIME
 
 function checkWindows() {
-
-    // TODO:
 
     logger.verbose('CHECKING WINDOW');
 
@@ -598,8 +617,6 @@ function checkWindows() {
             return counts[b] - counts[a]
         })
 
-        //FIXME: todo en general
-
         logger.debug(`countSorted ${JSON.stringify(countsSorted)}`);
         logger.debug(`SPOTS ${JSON.stringify(spots)}`);
         logger.debug(`CALLQUEUE ${callQueue}`)
@@ -623,8 +640,6 @@ function checkWindows() {
             mark = mark + 1
 
         }
-
-        // to be removed
 
     }
 
@@ -697,17 +712,31 @@ function backFromExecution(spot) {
     if (callQueue.length > 0) {
         try {
             callObject = callQueue.shift();
+
+            // No se refresca porque sigue executing a ojos del señor
+
+            // var parent = spots['spot' + spot].parent;
+
+            // await setAssignedSpot(parent, spot).catch((err) => { logger.error(err); });
+
             spots['spot' + spot].callNum = callObject.callNum;
             spots['spot' + spot].status = 'ASSIGNED';
 
             logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-            executeNoPreload(callObject, spot);
+            var sendMsg = {}
+            sendMsg.msgType = 'executeNoPreload';
+            sendMsg.content = callObject;
+            sendMsg.spot = spot;
+            sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
             refreshSpots(false);
         } catch (err) {
             logger.error(err);
         }
     } else {
+
+        // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
+
         spots['spot' + spot].callNum = '';
         spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * concLevel + spot}`;
         spots['spot' + spot].status = 'LOADING_RT';
@@ -757,7 +786,7 @@ function backFromExecution(spot) {
 
 }
 
-function checkRuntimeAvailable(callObject) {
+async function checkRuntimeAvailable(callObject) {
 
 
     // Añadir el timing (insertedCall) y el runtime a la array de windowArray.
@@ -768,51 +797,93 @@ function checkRuntimeAvailable(callObject) {
     // Recorrer todos los spots para ver si hay alguno que tenga el runtime del callobject.
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-    var allCorrect = true;
+    // var allCorrect = true;
 
-    for (i = 0; i < concLevel; i++) {
-        var index = 'spot' + i;
-        if (spots[index].content == callObject.runtime) {
+    // for (i = 0; i < concLevel; i++) {
+    //     var index = 'spot' + i;
+    //     if (spots[index].content == callObject.runtime) {
 
-            if (spots[index].status == 'LOADING_RT' && spots[index].buffer == null) {
+    //         if (spots[index].status == 'LOADING_RT' && spots[index].buffer == null) {
 
-                // Espero al runtime
+    //             // Espero al runtime
 
-                spots[index].buffer = callObject;
+    //             spots[index].buffer = callObject;
 
-                return;
+    //             return;
 
-            } else if (spots[index].status == 'RUNTIME') {
-                // Si es así cambiar el status del spot y ejecutar.
+    //         } else if (spots[index].status == 'RUNTIME') {
+    //             // Si es así cambiar el status del spot y ejecutar.
 
-                spots[index].callNum = callObject.callNum;
-                spots[index].status = 'EXECUTING';
+    //             spots[index].callNum = callObject.callNum;
+    //             spots[index].status = 'EXECUTING';
 
-                callObject.containerName = spots[index].containerName;
+    //             callObject.containerName = spots[index].containerName;
 
-                logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+    //             logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-                execRtPreloaded(callObject, i);
+    //             execRtPreloaded(callObject, i);
 
-                return;
-            }
+    //             return;
+    //         }
 
-        } else {
-            allCorrect = false;
-        }
-    }
+    //     } else {
+    //         allCorrect = false;
+    //     }
+    // }
 
-    // de no ser así encolar el callObject.
+    var spot = await getFirstSuitableRuntime(callObject.runtime);
 
-    callQueue.push(callObject);
-    logger.debug('PUSHED TO CALLQUEUE');
-    logger.debug(JSON.stringify(callQueue));
+    logger.info(`SELECTED SPOT ${spot}`);
 
-    if (!allCorrect) {
+    if (spot == -1) {
+        logger.verbose('Every spot is busy (not loaded)');
+        callQueue.push(callObject);
+        logger.debug('PUSHED TO CALLQUEUE');
+        logger.debug(JSON.stringify(callQueue));
+    } else if (spot == -2) {
+        logger.verbose('Didnt find a suitable loaded spot. Removing one random loaded');
         refreshSpots(false);
+    } else {
+
+        spots[index].callNum = callObject.callNum;
+        spots[index].status = 'EXECUTING';
+        callObject.containerName = spots[index].containerName;
+
+        logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+        var sendMsg = {}
+        sendMsg.msgType = 'execRtPreloaded';
+        sendMsg.content = callObject;
+        sendMsg.spot = spot;
+        sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+
     }
 
 }
+
+function getFirstSuitableRuntime(runtimeName){
+    logger.debug(`GET FREE SUITABLE RUNTIME`);
+    for (var i = 0; i < workerCount; i++){
+        workerId = 'worker' + i;
+        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+            var res = await setExecutingSpot(workerId, workerStore[workerId].spots[j], runtimeName)
+                .catch((err) => { 
+                    // settear el flag si ha encontrado un loaded con un runtime diferente
+                    logger.error(err); 
+                });
+            logger.debug(`RES ${res}`);
+            if(res != undefined){
+
+                // TODO: Devolver también el containername
+
+                return res;
+            }
+        }
+    }
+    // devolver dependiendo del flag
+    return -1;
+}
+
 
 function execRtPreloaded(callObject, spot) {
 
@@ -897,7 +968,11 @@ sockRou.on('message', function (envelope, msg) {
             break;
         case 'liberateSpot':
             logger.info('liberating spot');
-            liberateSpot(envelope, msg.content);
+            liberateSpot(msg.content);
+            break;
+        case 'backFromExecution':
+            logger.info('back from execution');
+            backFromExecution(msg.content);
             break;
     }
 });

@@ -201,7 +201,9 @@ async function registerWorker(availableSpots) {
 
     await createPath('/' + workerId + '/busy');
 
-    for (i = 0; i < availableSpots; i++) {
+    var currSpotCount = spotCount;
+
+    for (i = spotCount; i < currSpotCount + availableSpots; i++) {
         var pathName = '/' + workerId + '/busy/' + i;
         await createPath(pathName);
         workerStore[workerId].spots.push(spotCount);
@@ -482,8 +484,6 @@ async function selectFirstAvailable(spot) {
     spots['spot' + spot].callNum = callObject.callNum;
     spots['spot' + spot].status = 'ASSIGNED';
 
-    await setContent(`/${parent}/${spot}`, spots['spot' + spot]);
-
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
     //executeNoPreload(callObject, spot);
@@ -500,10 +500,10 @@ async function selectFirstAvailable(spot) {
 
 async function getFirstFreeSpot(){
     logger.debug(`GET FREE FIRST SPOT`);
-    for (i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++){
         workerId = 'worker' + i;
-        for (j in workerStore[workerId].spots){
-            var res = await setBusySpot(workerId, j)
+        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+            var res = await setBusySpot(workerId, workerStore[workerId].spots[j])
                         .catch((err) => { logger.error(err); });
             logger.debug(`RES ${res}`);
             if(res != undefined){

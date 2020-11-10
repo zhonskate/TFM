@@ -596,10 +596,11 @@ function registeredWorker(content) {
     sendMsg.content = workerId;
     sockRou.send(JSON.stringify(sendMsg));
 
-    for(i in recSpots){
+    for(i=0; i<recSpots.length; i++){
+        logger.verbose(`recSpot ${recSpots[i]}`);
         var sendMsg = {}
         sendMsg.msgType = 'liberateSpot';
-        sendMsg.content = i;
+        sendMsg.content = recSpots[i];
         sockRou.send(JSON.stringify(sendMsg));
     }
 }

@@ -33,12 +33,16 @@ echo 'launching faas-broker...'
 
 docker run -d -v log-vol:/ws/logs --net=faas --name faas-broker faas-broker
 
-echo 'launching faas-worker...'
+echo 'launching faas-worker 0...'
 
-docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -v uploads-vol:/ws/uploads --net=faas --name faas-worker faas-worker
+docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -v uploads-vol:/ws/uploads --net=faas --name faas-worker-0 faas-worker
+
+echo 'launching faas-worker 1...'
+
+docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -v uploads-vol:/ws/uploads --net=faas --name faas-worker-1 faas-worker
 
 echo 'attaching to log...'
 
-docker exec faas-worker tail -f /ws/logs/combined.log
+docker exec faas-broker tail -f /ws/logs/combined.log
 
  
