@@ -155,8 +155,6 @@ logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
 // Other
 
-const CALLS_PATH = 'calls';
-
 const invokePolicy = faasConf.invokePolicy;
 
 const windowTime = 300000;
@@ -354,6 +352,57 @@ async function setExecutingSpot(worker, spot, runtime){
             resolve(spot);
         });
     });
+}
+
+async function setLoadedSpot(worker, spot, runtime){
+
+    return new Promise((resolve, reject) => {
+
+        logger.info(`SETTING LOADED SPOT ${spot} ${runtime}`);
+    
+        waitForZookeeper();
+        
+        zClient.transaction().
+        check(`/${worker}/busy/${spot}/executing`).
+        remove(`/${worker}/busy/${spot}/executing`, -1).
+        create(`/${worker}/busy/${spot}/loaded`, -1).
+        create(`/${worker}/busy/${spot}/loaded/${runtime}`).
+        commit(function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the transaction: ${error} , ${results}`);
+                    // TODO: Handle the rejection and return consequently.
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
+}
+
+async function removeLoaded(worker, spot){
+
+    
+    return new Promise((resolve, reject) => {
+
+        logger.info(`REMOVING LOADED SPOT ${spot}`);
+    
+        waitForZookeeper();
+        
+        zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, function (error, results) {
+            if (error) {
+                logger.error(
+                    `Failed to execute the removal: ${error}`);
+                    // TODO: Handle the rejection and return consequently.
+                reject();
+            }
+
+            logger.verbose('Transaction completed.');
+            resolve(spot);
+        });
+    });
+
 }
 
 async function setAssignedSpot(worker, spot){
@@ -651,7 +700,23 @@ function checkWindows() {
 
 }
 
-async function refreshSpots(allRuntimes) {
+async function tryToRefresh(){
+    logger.debug(`TRY TO REFRESH`);
+    for (var i = 0; i < workerCount; i++){
+        workerId = 'worker' + i;
+        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+            var res = await removeLoaded(workerId, workerStore[workerId].spots[j])
+                        .catch((err) => { logger.error(err); });
+            logger.debug(`RES ${res}`);
+            if(res != undefined){
+                return res;
+            }
+        }
+    }
+    return -1;
+}
+
+async function refreshSpots() {
 
     while (target['spot0'] == null) {
         setTimeout(function () {
@@ -660,28 +725,29 @@ async function refreshSpots(allRuntimes) {
     }
 
     logger.verbose('REFRESHING SPOTS');
-    for (i = 0; i < concLevel; i++) {
-        if (spots['spot' + i].status == null) {
-            backFromExecution(i);
-        } else if (spots['spot' + i].status == 'EXECUTING' || spots['spot' + i].status == 'ASSIGNED') {
-            continue;
-        } else if (spots['spot' + i].status == 'LOADING_RT') {
-            continue;
-        } else {
 
-            // FIXME: tener en cuenta los runtimes cargados que estén en su sitio.
+    // si está loaded le mando un delete y que vuelva
 
-            if (spots['spot' + i].containerName != null && spots['spot' + i].content != null) {
+    
+    var spot = await tryToRefresh();
 
-                logger.verbose('EMPTYING SPOT ' + i);
+    logger.info(`SELECTED SPOT ${spot}`);
 
-                await invoke.forceDelete(logger, spots['spot' + i].containerName, spots['spot' + i].content)
-                backFromExecution(i);
-                if (!allRuntimes) {
-                    return;
-                }
-            }
-        }
+    if (spot == -1) {
+        logger.verbose('Everything busy');
+    } else {
+
+    // deletea la bicha
+
+    var parent = spots['spot' + spot].parent;
+
+    var sendMsg = {}
+    sendMsg.msgType = 'forceRemoveSpot';
+    sendMsg.containerName = spots['spot' + spot].containerName;
+    sendMsg.content = spots['spot' + spot].content;
+    sendMsg.spot = spot;
+    sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+
     }
 }
 
@@ -713,9 +779,9 @@ function backFromExecution(spot) {
         try {
             callObject = callQueue.shift();
 
-            // No se refresca porque sigue executing a ojos del señor
+            var parent = spots['spot' + spot].parent;
 
-            // var parent = spots['spot' + spot].parent;
+            // No se refresca porque sigue executing a ojos del señor
 
             // await setAssignedSpot(parent, spot).catch((err) => { logger.error(err); });
 
@@ -735,6 +801,9 @@ function backFromExecution(spot) {
         }
     } else {
 
+
+        var parent = spots['spot' + spot].parent;
+
         // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
 
         spots['spot' + spot].callNum = '';
@@ -752,38 +821,24 @@ function backFromExecution(spot) {
             "containerName": spots['spot' + spot].containerName
         }
 
-        // FIXME: si se lanza antes de que se caiga el preload anterior es posible que pete. inventar solve
-
-        invoke.preloadRuntime(logger, callObject)
-            .then(() => {
-                logger.debug('RUNTIME READY IN SPOT ' + spot);
-
-                var timing = new Date().getTime();
-                spots['spot' + spot].runtimeTiming = timing;
-
-                if (spots['spot' + spot].buffer != null) {
-
-                    logger.verbose('BUFFER FOUND IN SPOT ' + spot);
-
-                    callObject = spots['spot' + spot].buffer;
-
-                    spots['spot' + spot].callNum = callObject.callNum;
-                    spots['spot' + spot].status = 'EXECUTING';
-
-                    spots['spot' + spot].buffer = null;
-
-                    callObject.containerName = spots['spot' + spot].containerName;
-
-                    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
-
-                    execRtPreloaded(callObject, spot);
-                } else {
-                    spots['spot' + spot].status = 'RUNTIME';
-                }
-            });
+        var sendMsg = {}
+        sendMsg.msgType = 'preloadRuntime';
+        sendMsg.content = callObject;
+        sendMsg.spot = spot;
+        sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
 
     }
 
+}
+
+async function backFromPreloading(spot, runtime){
+
+    var parent = spots['spot' + spot].parent;
+
+    var res = await setLoadedSpot(parent, spot, runtime)
+                .catch((err) => { // settear el flag si ha encontrado un loaded con un runtime diferente
+                    logger.error(err); 
+                });
 }
 
 async function checkRuntimeAvailable(callObject) {
@@ -861,7 +916,7 @@ async function checkRuntimeAvailable(callObject) {
 
 }
 
-function getFirstSuitableRuntime(runtimeName){
+async function getFirstSuitableRuntime(runtimeName){
     logger.debug(`GET FREE SUITABLE RUNTIME`);
     for (var i = 0; i < workerCount; i++){
         workerId = 'worker' + i;
@@ -884,30 +939,21 @@ function getFirstSuitableRuntime(runtimeName){
     return -1;
 }
 
+async function setIntoExec(spot) {
 
-function execRtPreloaded(callObject, spot) {
+    logger.verbose(`Setting spot ${spot} into exec`);
 
-    invoke.execRuntimePreloaded(logger, callObject, CALLS_PATH)
-        .then((insertedCall) => {
-            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+    var parent = spots['spot' + spot].parent;
 
-            insertedCall.timing.runtime = spots['spot' + spot].runtimeTiming;
-            spots['spot' + spot].runtimeTiming = null;
+    await createPath(`/${parent}/busy/${spot}/executing`);
 
-            // Updatear la DB
+    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-            var sendMsg = {}
-            sendMsg.msgType = 'updateCall';
-            sendMsg.content = insertedCall;
-            sockDB.send(JSON.stringify(sendMsg));
+    backFromExecution(spot);
 
-            // avisar a la API
-
-            sockReq.send(JSON.stringify(sendMsg));
-
-            backFromExecution(spot);
-        });
 }
+
+
 
 
 // PRELOAD FUNCTION
@@ -973,6 +1019,14 @@ sockRou.on('message', function (envelope, msg) {
         case 'backFromExecution':
             logger.info('back from execution');
             backFromExecution(msg.content);
+            break;
+        case 'backFromPreloading':
+            logger.info('back from preloading');
+            backFromPreloading(msg.spot, msg.content);
+            break;
+        case 'setIntoExec':
+            logger.info('Setting spot into exec');
+            setIntoExec(msg.content);
             break;
     }
 });

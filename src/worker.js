@@ -6,6 +6,7 @@ const logger = require('winston');
 var invoke = require('./invoke');
 var utils = require('./utils');
 const fs = require('fs');
+const { forceDelete } = require('./invoke');
 
 
 // Load faas-conf
@@ -110,26 +111,6 @@ logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 const CALLS_PATH = 'calls';
 
 const invokePolicy = faasConf.invokePolicy;
-
-const windowTime = 300000;
-
-if (invokePolicy == 'PRELOAD_RUNTIME') {
-
-    logger.verbose('preload runtime data structures');
-
-    var windowArray = [];
-    var baseTarget = {};
-    var target = {};
-
-    const windowRefresh = 5000;
-
-    setInterval(function () {
-        checkWindows();
-    }, windowRefresh);
-
-
-}
-
 
 // Functions
 //----------------------------------------------------------------------------------//
@@ -256,38 +237,14 @@ function liberateSpot(spot) {
 
 }
 
-async function refreshSpots(allRuntimes) {
+function setIntoExec(spot) {
 
-    while (target['spot0'] == null) {
-        setTimeout(function () {
-            logger.debug('target not set')
-        }, 1000);
-    }
+    logger.verbose(`Setting spot ${spot} into exec`);
+    var sendMsg = {}
+    sendMsg.msgType = 'setIntoExec';
+    sendMsg.content = spot;
+    sockRou.send(JSON.stringify(sendMsg));
 
-    logger.verbose('REFRESHING SPOTS');
-    for (i = 0; i < concLevel; i++) {
-        if (spots['spot' + i].status == null) {
-            backFromExecution(i);
-        } else if (spots['spot' + i].status == 'EXECUTING' || spots['spot' + i].status == 'ASSIGNED') {
-            continue;
-        } else if (spots['spot' + i].status == 'LOADING_RT') {
-            continue;
-        } else {
-
-            // FIXME: tener en cuenta los runtimes cargados que estén en su sitio.
-
-            if (spots['spot' + i].containerName != null && spots['spot' + i].content != null) {
-
-                logger.verbose('EMPTYING SPOT ' + i);
-
-                await invoke.forceDelete(logger, spots['spot' + i].containerName, spots['spot' + i].content)
-                backFromExecution(i);
-                if (!allRuntimes) {
-                    return;
-                }
-            }
-        }
-    }
 }
 
 function backFromExecution(spot) {
@@ -327,6 +284,37 @@ function execRtPreloaded(callObject, spot) {
         });
 }
 
+function execRtPreloaded(callObject, spot) {
+
+    invoke.preloadRuntime(logger, callObject)
+        .then(() => {
+            logger.debug('RUNTIME READY IN SPOT ' + spot);
+
+            var timing = new Date().getTime();
+            spots['spot' + spot].runtimeTiming = timing;
+
+
+            backFromPreloading(spot, callObject.runtime);
+        });
+}
+
+function backFromPreloading(spot, runtime) {
+
+    logger.verbose(`BACK FROM PRELOAD ${spot}`)
+
+    var sendMsg = {}
+    sendMsg.msgType = 'backFromPreloading';
+    sendMsg.content = runtime;
+    sendMsg.spot = spot;
+    sockRou.send(JSON.stringify(sendMsg));   
+
+}
+
+function forceRemove(runtime, spot, containerName){
+    forceDelete(logger,containerName, runtime);
+
+}
+
 function registeredWorker(content) {
     workerId = content.workerId;
     recSpots = content.spots;
@@ -340,10 +328,11 @@ function registeredWorker(content) {
 
     for(i=0; i<recSpots.length; i++){
         logger.verbose(`recSpot ${recSpots[i]}`);
-        var sendMsg = {}
-        sendMsg.msgType = 'liberateSpot';
-        sendMsg.content = recSpots[i];
-        sockRou.send(JSON.stringify(sendMsg));
+        if(invokePolicy =='PRELOAD_NOTHING'){
+            liberateSpot(recSpots[i]);
+        } else if (invokePolicy == 'PRELOAD_RUNTIME'){
+            setIntoExec(recSpots[i]);
+        }
     }
 }
 
@@ -400,7 +389,13 @@ sockRou.on('message', function (msg) {
             executeNoPreload(msg.content, msg.spot);
             break;
         case 'execRtPreloaded':
-            executeNoPreload(msg.content, msg.spot);
+            execRtPreloaded(msg.content, msg.spot);
+            break;
+        case 'execRtPreloaded':
+            preloadRuntime(msg.content, msg.spot);
+            break;
+        case 'forceRemoveSpot':
+            forceRemove(msg.content, msg.spot, msg.containerName);
             break;
     }
 });
