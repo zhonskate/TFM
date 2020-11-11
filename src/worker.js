@@ -94,15 +94,9 @@ var functionStore = {};
 
 // Available spots;
 
-const concLevel = 8;
+const concLevel = 4;
 var spots = {};
 freeSpots = [];
-
-for (i = 0; i < concLevel; i++) {
-    spots['spot' + i] = {};
-    spots['spot' + i].multiplier = 0;
-    freeSpots.push(i);
-}
 
 logger.debug(`SPOTS ${JSON.stringify(spots)} free ${freeSpots}`);
 
@@ -120,10 +114,6 @@ function processRuntime(img) {
     logger.verbose(`RECEIVED RUNTIME ${img}`);
     runtimePool.push(img);
     logger.debug(runtimePool);
-
-    if (invokePolicy == 'PRELOAD_RUNTIME') {
-        updateBaseTarget();
-    }
 
 }
 
@@ -237,11 +227,11 @@ function liberateSpot(spot) {
 
 }
 
-function setIntoExec(spot) {
+function setIntoStart(spot) {
 
     logger.verbose(`Setting spot ${spot} into exec`);
     var sendMsg = {}
-    sendMsg.msgType = 'setIntoExec';
+    sendMsg.msgType = 'setIntoStart';
     sendMsg.content = spot;
     sockRou.send(JSON.stringify(sendMsg));
 
@@ -284,7 +274,7 @@ function execRtPreloaded(callObject, spot) {
         });
 }
 
-function execRtPreloaded(callObject, spot) {
+function preloadRuntime(callObject, spot) {
 
     invoke.preloadRuntime(logger, callObject)
         .then(() => {
@@ -312,6 +302,7 @@ function backFromPreloading(spot, runtime) {
 
 function forceRemove(runtime, spot, containerName){
     forceDelete(logger,containerName, runtime);
+    backFromExecution(spot);
 
 }
 
@@ -328,10 +319,15 @@ function registeredWorker(content) {
 
     for(i=0; i<recSpots.length; i++){
         logger.verbose(`recSpot ${recSpots[i]}`);
+
+        spots['spot' + recSpots[i]] = {};
+        spots['spot' + recSpots[i]].multiplier = 0;
+        freeSpots.push(recSpots[i]);
+
         if(invokePolicy =='PRELOAD_NOTHING'){
             liberateSpot(recSpots[i]);
         } else if (invokePolicy == 'PRELOAD_RUNTIME'){
-            setIntoExec(recSpots[i]);
+            setIntoStart(recSpots[i]);
         }
     }
 }
@@ -391,7 +387,7 @@ sockRou.on('message', function (msg) {
         case 'execRtPreloaded':
             execRtPreloaded(msg.content, msg.spot);
             break;
-        case 'execRtPreloaded':
+        case 'preloadRuntime':
             preloadRuntime(msg.content, msg.spot);
             break;
         case 'forceRemoveSpot':

@@ -7,7 +7,7 @@ curl --header "Content-Type: application/json" \
 echo ''
 
 
-sleep 2
+sleep 5
 # registerRuntime
 
 curl --header "Content-Type: application/json" \
