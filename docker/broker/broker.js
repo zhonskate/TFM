@@ -10,7 +10,9 @@ var zookeeper = require('node-zookeeper-client');
 const {
     env
 } = require('process');
-const { loggers } = require('winston');
+const {
+    loggers
+} = require('winston');
 
 
 // Load faas-conf
@@ -172,9 +174,9 @@ if (invokePolicy == 'PRELOAD_RUNTIME') {
     setInterval(function () {
         checkWindows();
     }, windowRefresh);
-
-
 }
+
+var queueStucked = {};
 
 
 // Functions
@@ -277,26 +279,27 @@ async function setContent(path, data) {
 
 }
 
-async function setBusySpot(worker, spot){
+async function setBusySpot(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
         logger.info(`SETTING BUSY SPOT ${spot}`);
-    
+
         waitForZookeeper();
-        
+
         zClient.transaction().
         check(`/${worker}/free/${spot}`).
         remove(`/${worker}/free/${spot}`, -1).
         create(`/${worker}/busy/${spot}`).
         commit(function (error, results) {
             if (error) {
-                if (results[0].err == -101){
+                if (results[0].err == -101) {
                     logger.verbose(`Node is already busy`);
+                    resolve(-1);
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`)
+                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot} is successfully created.`);
                 resolve(spot);
@@ -305,26 +308,27 @@ async function setBusySpot(worker, spot){
     });
 }
 
-async function setFreeSpot(worker, spot){
+async function setFreeSpot(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
         logger.info(`SETTING FREE SPOT ${spot}`);
-    
+
         waitForZookeeper();
-        
+
         zClient.transaction().
         check(`/${worker}/busy/${spot}`).
         remove(`/${worker}/busy/${spot}`, -1).
         create(`/${worker}/free/${spot}`).
         commit(function (error, results) {
             if (error) {
-                if (results[0].err == -101){
+                if (results[0].err == -101) {
                     logger.verbose(`Node is already free`);
+                    resolve(-1)
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`)
+                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/free/${spot} is successfully created.`);
                 resolve(spot);
@@ -333,14 +337,14 @@ async function setFreeSpot(worker, spot){
     });
 }
 
-async function setExecutingSpot(worker, spot, runtime){
+async function setExecutingSpot(worker, spot, runtime) {
 
     return new Promise((resolve, reject) => {
 
         logger.info(`SETTING EXECUTING SPOT ${spot} ${runtime}`);
-    
+
         waitForZookeeper();
-        
+
         zClient.transaction().
         check(`/${worker}/busy/${spot}/loaded`).
         check(`/${worker}/busy/${spot}/loaded/${runtime}`).
@@ -349,16 +353,16 @@ async function setExecutingSpot(worker, spot, runtime){
         create(`/${worker}/busy/${spot}/executing`).
         commit(function (error, results) {
             if (error) {
-                if (results[0].err == -101){
+                if (results[0].err == -101) {
                     logger.verbose(`Node not in loaded state`);
-                    reject();
-                } else if (results[1].err == -101){
+                    resolve(-1);
+                } else if (results[1].err == -101) {
                     logger.verbose(`Node loaded but with other runtime`);
                     resolve(-2);
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`)
+                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
                 resolve(spot);
@@ -367,14 +371,14 @@ async function setExecutingSpot(worker, spot, runtime){
     });
 }
 
-async function setLoadedSpot(worker, spot, runtime){
+async function setLoadedSpot(worker, spot, runtime) {
 
     return new Promise((resolve, reject) => {
 
         logger.info(`SETTING LOADED SPOT ${spot} ${runtime}`);
-    
+
         waitForZookeeper();
-        
+
         zClient.transaction().
         check(`/${worker}/busy/${spot}/executing`).
         remove(`/${worker}/busy/${spot}/executing`, -1).
@@ -382,12 +386,13 @@ async function setLoadedSpot(worker, spot, runtime){
         create(`/${worker}/busy/${spot}/loaded/${runtime}`).
         commit(function (error, results) {
             if (error) {
-                if (results[0].err == -101){
+                if (results[0].err == -101) {
                     logger.verbose(`Node is already loaded`);
+                    resolve(-1);
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`)
+                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot}/loaded/${runtime} is successfully created.`);
                 resolve(spot);
@@ -396,28 +401,29 @@ async function setLoadedSpot(worker, spot, runtime){
     });
 }
 
-async function removeLoaded(worker, spot){
+async function removeLoaded(worker, spot) {
 
-    
-    return new Promise((resolve, reject) => {
+
+    return new Promise(async (resolve, reject) => {
 
         logger.info(`REMOVING LOADED SPOT ${worker} ${spot}`);
-    
+
         waitForZookeeper();
-        
-        zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, function (error) {
+
+        await zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, function (error) {
             if (error) {
-                if (error.getCode() == zookeeper.Exception.NO_NODE){
+                if (error.getCode() == zookeeper.Exception.NO_NODE) {
                     logger.verbose(`Node is not in loaded state`);
+                    resolve(-1);
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error.stack}`)
+                    logger.error(`Failed to execute the transaction: ${error.stack}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot}/loaded is successfully recursively removed.`);
 
-                createPath(`/${worker}/busy/${spot}/executing`).catch((err) => { 
-                    logger.error(`create path failed due to error ${err}`); 
+                createPath(`/${worker}/busy/${spot}/executing`).catch((err) => {
+                    logger.error(`create path failed due to error ${err}`);
                     reject();
                 });
 
@@ -428,26 +434,27 @@ async function removeLoaded(worker, spot){
 
 }
 
-async function setExecStart(worker, spot){
+async function setExecStart(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
         logger.info(`SETTING START INTO EXEC SPOT ${spot}`);
-    
+
         waitForZookeeper();
-        
+
         zClient.transaction().
         check(`/${worker}/busy/${spot}/started`).
         remove(`/${worker}/busy/${spot}/started`, -1).
         create(`/${worker}/busy/${spot}/executing`).
         commit(function (error, results) {
             if (error) {
-                if (results[0].err == -101){
+                if (results[0].err == -101) {
                     logger.verbose(`Node already started`);
+                    resolve(-1);
                 } else {
-                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`)
+                    logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
+                    reject();
                 }
-                reject();
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
                 resolve(spot);
@@ -562,7 +569,7 @@ function enqueueCall(callObject) {
 
 }
 
-function storeWorker(envelope, worker){
+function storeWorker(envelope, worker) {
     logger.info(`STORE WORKER ${worker} // ${JSON.stringify(workerStore)}`);
     workerStore[worker].env = envelope;
 }
@@ -591,7 +598,9 @@ async function checkSpots() {
         if (callQueue.length == 0) {
             logger.verbose('Call queue empty');
             parent = spots['spot' + spot].parent;
-            await setFreeSpot(parent, spot).catch((err) => { logger.error(err); });
+            await setFreeSpot(parent, spot).catch((err) => {
+                logger.error(err);
+            });
             return;
         } else {
             selectFirstAvailable(spot);
@@ -625,15 +634,17 @@ async function selectFirstAvailable(spot) {
 
 }
 
-async function getFirstFreeSpot(){
+async function getFirstFreeSpot() {
     logger.debug(`GET FREE FIRST SPOT`);
-    for (var i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++) {
         var workerId = 'worker' + i;
-        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+        for (var j = 0; j < workerStore[workerId].spots.length; j++) {
             var res = await setBusySpot(workerId, workerStore[workerId].spots[j])
-                        .catch((err) => { logger.error(err); });
+                .catch((err) => {
+                    logger.error(err);
+                });
             logger.debug(`RES ${res}`);
-            if(res != undefined){
+            if (res != undefined && res != -1) {
                 return res;
             }
         }
@@ -647,7 +658,9 @@ async function liberateSpot(spot) {
 
     var parent = spots['spot' + spot].parent;
 
-    await setFreeSpot(parent, spot).catch((err) => { logger.error(err); });
+    await setFreeSpot(parent, spot).catch((err) => {
+        logger.error(err);
+    });
 
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
@@ -719,6 +732,15 @@ function checkWindows() {
 
     logger.info(`Target ${JSON.stringify(target)}`);
 
+    if (callQueue.length > 0) {
+        if (queueStucked == callQueue[0]) {
+            refreshSpots(false);
+        }
+        queueStucked = callQueue[0];
+    } else {
+        queueStucked = {};
+    }
+
     // si hay llamadas se ponderan y se actualiza target como sea necesario.
 
     // iniciar los spots        
@@ -737,17 +759,19 @@ async function refreshSpots(allSpots) {
 
     logger.debug(`TRY TO REFRESH`);
     var flag = false;
-    for (var i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++) {
         var workerId = 'worker' + i;
-        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+        for (var j = 0; j < workerStore[workerId].spots.length; j++) {
             var selSpot = workerStore[workerId].spots[j]
 
             logger.info(`trying to refresh spot ${selSpot}`);
 
             var res = await removeLoaded(workerId, selSpot)
-                        .catch((err) => { logger.error(err); });
+                .catch((err) => {
+                    logger.error(err);
+                });
             logger.debug(`RES ${res}`);
-            if(res != undefined){
+            if (res != undefined && res != -1) {
                 flag = true;
 
                 logger.info(`SELECTED SPOT ${selSpot}`);
@@ -762,15 +786,15 @@ async function refreshSpots(allSpots) {
                 sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
                 logger.info(`refreshed spot ${selSpot}`);
 
-                if (!allSpots){
+                if (!allSpots) {
                     return;
                 }
             }
         }
     }
-    if(flag){
+    if (flag) {
         logger.info(`refreshed all spots`);
-        return true;   
+        return true;
     }
     logger.verbose('Everything busy');
 }
@@ -797,15 +821,17 @@ async function updateBaseTarget() {
 
 }
 
-async function startIntoExec(){
+async function startIntoExec() {
     logger.debug(`START INTO EXEC`);
-    for (var i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++) {
         var workerId = 'worker' + i;
-        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+        for (var j = 0; j < workerStore[workerId].spots.length; j++) {
             var res = await setExecStart(workerId, workerStore[workerId].spots[j])
-                        .catch((err) => { logger.error(err); });
+                .catch((err) => {
+                    logger.error(err);
+                });
             logger.debug(`RES ${res}`);
-            if(res != undefined){
+            if (res != undefined && res != -1) {
                 backFromExecution(res);
             }
         }
@@ -844,7 +870,7 @@ function backFromExecution(spot) {
         }
     } else {
 
-        if (target['spot0'] != null){
+        if (target['spot0'] != null) {
 
             logger.debug(`LOADING  ${JSON.stringify(spots)}`);
 
@@ -883,16 +909,16 @@ function backFromExecution(spot) {
 
 }
 
-async function backFromPreloading(spot, runtime){
+async function backFromPreloading(spot, runtime) {
 
     logger.info(`BACK FROM PRELOADING ${spot}`)
 
     var parent = spots['spot' + spot].parent;
 
     await setLoadedSpot(parent, spot, runtime)
-                .catch((err) => { // settear el flag si ha encontrado un loaded con un runtime diferente
-                    logger.error(err); 
-                });
+        .catch((err) => { // settear el flag si ha encontrado un loaded con un runtime diferente
+            logger.error(err);
+        });
 }
 
 async function checkRuntimeAvailable(callObject) {
@@ -972,18 +998,20 @@ async function checkRuntimeAvailable(callObject) {
 
 }
 
-async function getFirstSuitableRuntime(runtimeName){
+async function getFirstSuitableRuntime(runtimeName) {
     logger.debug(`GET FREE SUITABLE RUNTIME`);
     var flag = false
-    for (var i = 0; i < workerCount; i++){
+    for (var i = 0; i < workerCount; i++) {
         var workerId = 'worker' + i;
-        for (var j = 0; j < workerStore[workerId].spots.length; j++){
+        for (var j = 0; j < workerStore[workerId].spots.length; j++) {
             var res = await setExecutingSpot(workerId, workerStore[workerId].spots[j], runtimeName)
-                .catch((err) => { logger.error(err); });
+                .catch((err) => {
+                    logger.error(err);
+                });
 
             logger.debug(`RES ${res}`);
-            if(res != undefined){
-                if(res == -2){
+            if (res != undefined && res != -1) {
+                if (res == -2) {
                     flag = true
                 } else {
                     return res;
@@ -992,7 +1020,7 @@ async function getFirstSuitableRuntime(runtimeName){
         }
     }
     // devolver dependiendo del flag
-    if(flag){
+    if (flag) {
         return -2;
     }
     return -1;

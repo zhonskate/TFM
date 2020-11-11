@@ -6,7 +6,9 @@ const logger = require('winston');
 var invoke = require('./invoke');
 var utils = require('./utils');
 const fs = require('fs');
-const { forceDelete } = require('./invoke');
+const {
+    forceDelete
+} = require('./invoke');
 
 
 // Load faas-conf
@@ -244,7 +246,7 @@ function backFromExecution(spot) {
     var sendMsg = {}
     sendMsg.msgType = 'backFromExecution';
     sendMsg.content = spot;
-    sockRou.send(JSON.stringify(sendMsg));   
+    sockRou.send(JSON.stringify(sendMsg));
 
 }
 
@@ -296,12 +298,12 @@ function backFromPreloading(spot, runtime) {
     sendMsg.msgType = 'backFromPreloading';
     sendMsg.content = runtime;
     sendMsg.spot = spot;
-    sockRou.send(JSON.stringify(sendMsg));   
+    sockRou.send(JSON.stringify(sendMsg));
 
 }
 
-function forceRemove(runtime, spot, containerName){
-    forceDelete(logger,containerName, runtime);
+function forceRemove(runtime, spot, containerName) {
+    forceDelete(logger, containerName, runtime);
     backFromExecution(spot);
 
 }
@@ -317,16 +319,16 @@ function registeredWorker(content) {
     sendMsg.content = workerId;
     sockRou.send(JSON.stringify(sendMsg));
 
-    for(i=0; i<recSpots.length; i++){
+    for (i = 0; i < recSpots.length; i++) {
         logger.verbose(`recSpot ${recSpots[i]}`);
 
         spots['spot' + recSpots[i]] = {};
         spots['spot' + recSpots[i]].multiplier = 0;
         freeSpots.push(recSpots[i]);
 
-        if(invokePolicy =='PRELOAD_NOTHING'){
+        if (invokePolicy == 'PRELOAD_NOTHING') {
             liberateSpot(recSpots[i]);
-        } else if (invokePolicy == 'PRELOAD_RUNTIME'){
+        } else if (invokePolicy == 'PRELOAD_RUNTIME') {
             setIntoStart(recSpots[i]);
         }
     }
