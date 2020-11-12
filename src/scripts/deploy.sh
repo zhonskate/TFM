@@ -43,6 +43,6 @@ docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -
 
 echo 'attaching to log...'
 
-docker exec faas-broker tail -f /ws/logs/combined.log
+docker exec faas-api tail -f /ws/logs/combined.log
 
  

@@ -49,8 +49,6 @@ logger.info(`conf: ${JSON.stringify(faasConf)}`);
 
 // Zmq
 
-const registryIP = faasConf.registry.ip;
-const registryPort = faasConf.registry.port;
 const addressReq = `tcp://faas-api:${faasConf.zmq.apiRep}`;
 const addressSub = `tcp://faas-api:${faasConf.zmq.apiPub}`;
 const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
@@ -87,9 +85,6 @@ var runtimePool = [];
 
 // Pool of available function names
 var functionPool = [];
-
-// Queue of calls
-var callQueue = [];
 
 // Pool of available function + runtime info
 var functionStore = {};
@@ -212,7 +207,7 @@ function executeNoPreload(callObject, spot) {
 
             if (invokePolicy == "PRELOAD_NOTHING") {
                 liberateSpot(spot);
-            } else if (invokePolicy == "PRELOAD_RUNTIME") {
+            } else if (invokePolicy == "PRELOAD_RUNTIME" || invokePolicy == "PRELOAD_FUNCTION") {
                 backFromExecution(spot);
             }
         });
@@ -276,6 +271,32 @@ function execRtPreloaded(callObject, spot) {
         });
 }
 
+function execFuncPreloaded(callObject, spot) {
+
+    prepCall(callObject);
+
+    invoke.execFunctionPreloaded(logger, callObject, CALLS_PATH)
+        .then((insertedCall) => {
+            logger.debug(`INSERTED CALL ${JSON.stringify(insertedCall)}`);
+
+            insertedCall.timing.function = spots['spot' + spot].functionTiming;
+            spots['spot' + spot].functionTiming = null;
+
+            // Updatear la DB
+
+            var sendMsg = {}
+            sendMsg.msgType = 'updateCall';
+            sendMsg.content = insertedCall;
+            sockDB.send(JSON.stringify(sendMsg));
+
+            // avisar a la API
+
+            sockReq.send(JSON.stringify(sendMsg));
+
+            backFromExecution(spot);
+        });
+}
+
 function preloadRuntime(callObject, spot) {
 
     invoke.preloadRuntime(logger, callObject)
@@ -290,20 +311,34 @@ function preloadRuntime(callObject, spot) {
         });
 }
 
-function backFromPreloading(spot, runtime) {
+function preloadFunction(callObject, spot) {
+
+    invoke.preloadFunction(logger, callObject)
+        .then(() => {
+            logger.debug('FUNCTION READY IN SPOT ' + spot);
+
+            var timing = new Date().getTime();
+            spots['spot' + spot].functionTiming = timing;
+
+
+            backFromPreloading(spot, callObject.funcName);
+        });
+}
+
+function backFromPreloading(spot, warmContent) {
 
     logger.verbose(`BACK FROM PRELOAD ${spot}`)
 
     var sendMsg = {}
     sendMsg.msgType = 'backFromPreloading';
-    sendMsg.content = runtime;
+    sendMsg.content = warmContent;
     sendMsg.spot = spot;
     sockRou.send(JSON.stringify(sendMsg));
 
 }
 
-function forceRemove(runtime, spot, containerName) {
-    forceDelete(logger, containerName, runtime);
+function forceRemove(warmContent, spot, containerName) {
+    forceDelete(logger, containerName, warmContent);
     backFromExecution(spot);
 
 }
@@ -328,7 +363,7 @@ function registeredWorker(content) {
 
         if (invokePolicy == 'PRELOAD_NOTHING') {
             liberateSpot(recSpots[i]);
-        } else if (invokePolicy == 'PRELOAD_RUNTIME') {
+        } else if (invokePolicy == 'PRELOAD_RUNTIME' || invokePolicy == "PRELOAD_FUNCTION") {
             setIntoStart(recSpots[i]);
         }
     }
@@ -391,6 +426,12 @@ sockRou.on('message', function (msg) {
             break;
         case 'preloadRuntime':
             preloadRuntime(msg.content, msg.spot);
+            break;
+        case 'execFuncPreloaded':
+            execFuncPreloaded(msg.content, msg.spot);
+            break;
+        case 'preloadFunction':
+            preloadFunction(msg.content, msg.spot);
             break;
         case 'forceRemoveSpot':
             forceRemove(msg.content, msg.spot, msg.containerName);

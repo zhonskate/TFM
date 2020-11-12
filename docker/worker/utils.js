@@ -70,7 +70,7 @@ async function createContainer(logger, runtime, registryIP, registryPort, callNu
 
 async function runContainer(logger, runtime, registryIP, registryPort, containerName) {
 
-    logger.debug(`CREATE CONTAINER ${runtime}`);
+    logger.debug(`RUN CONTAINER ${runtime}`);
 
     var commandline = `docker run -d \
         --name ${containerName} \

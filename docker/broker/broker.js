@@ -3,16 +3,8 @@
 
 var zmq = require('zeromq');
 const logger = require('winston');
-var invoke = require('./invoke');
-var utils = require('./utils');
 const fs = require('fs');
 var zookeeper = require('node-zookeeper-client');
-const {
-    env
-} = require('process');
-const {
-    loggers
-} = require('winston');
 
 
 // Load faas-conf
@@ -161,9 +153,9 @@ const invokePolicy = faasConf.invokePolicy;
 
 const windowTime = 300000;
 
-if (invokePolicy == 'PRELOAD_RUNTIME') {
+if (invokePolicy == 'PRELOAD_RUNTIME' || invokePolicy == 'PRELOAD_FUNCTION') {
 
-    logger.verbose('preload runtime data structures');
+    logger.verbose('preload data structures');
 
     var windowArray = [];
     var baseTarget = {};
@@ -235,7 +227,7 @@ async function createPath(path) {
                 reject(error);
             } else {
                 logger.verbose(`Node: ${path} is successfully created.`);
-                resolve();
+                resolve(1);
             }
         });
     });
@@ -410,7 +402,7 @@ async function removeLoaded(worker, spot) {
 
         waitForZookeeper();
 
-        await zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, function (error) {
+        await zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, async function (error) {
             if (error) {
                 if (error.getCode() == zookeeper.Exception.NO_NODE) {
                     logger.verbose(`Node is not in loaded state`);
@@ -422,10 +414,12 @@ async function removeLoaded(worker, spot) {
             } else {
                 logger.verbose(`Node: /${worker}/busy/${spot}/loaded is successfully recursively removed.`);
 
-                createPath(`/${worker}/busy/${spot}/executing`).catch((err) => {
+                var res = await createPath(`/${worker}/busy/${spot}/executing`).catch((err) => {
                     logger.error(`create path failed due to error ${err}`);
-                    reject();
                 });
+                if(res==undefined){
+                    reject();
+                }
 
                 resolve(spot);
             }
@@ -514,6 +508,10 @@ function storeFunction(body) {
     // var commandline = `docker cp faas-api:/ws/uploads/${folderName} /ws/uploads/uploads/${body.function.runtimeName}`
     // utils.executeSync(logger, commandline);
 
+    if (invokePolicy == 'PRELOAD_FUNCTION') {
+        updateBaseTarget();
+    }
+
 }
 
 function prepareCall(body) {
@@ -553,8 +551,8 @@ function prepareCall(body) {
 
     if (invokePolicy == 'PRELOAD_NOTHING') {
         enqueueCall(callObject);
-    } else if (invokePolicy == 'PRELOAD_RUNTIME') {
-        checkRuntimeAvailable(callObject);
+    } else if (invokePolicy == 'PRELOAD_RUNTIME' || invokePolicy == 'PRELOAD_FUNCTION') {
+        checkWarmSpotAvailable(callObject);
     }
 
 }
@@ -669,7 +667,7 @@ async function liberateSpot(spot) {
 }
 
 
-// PRELOAD RUNTIME
+// PRELOAD RUNTIME & FUNCTIONS COMMON
 
 function checkWindows() {
 
@@ -695,6 +693,9 @@ function checkWindows() {
 
         for (var i = 0; i < windowArray.length; i++) {
             var rt = windowArray[i][0];
+            if(rt == undefined){
+                continue;
+            }
             counts[rt] = counts[rt] ? counts[rt] + 1 : 1;
         }
 
@@ -801,16 +802,31 @@ async function refreshSpots(allSpots) {
 
 async function updateBaseTarget() {
 
-    if (runtimePool.length > spotCount) {
-        return;
-    }
-
-    for (var i = 0; i < spotCount; i++) {
-        for (var j = 0; j < runtimePool.length && i < spotCount; j++) {
-            var i = i + j;
-            baseTarget['spot' + i] = runtimePool[j];
+    if(invokePolicy == 'PRELOAD_RUNTIME'){
+        if (runtimePool.length > spotCount) {
+            return;
+        }
+    
+        for (var i = 0; i < spotCount; i++) {
+            for (var j = 0; j < runtimePool.length && i < spotCount; j++) {
+                var i = i + j;
+                baseTarget['spot' + i] = runtimePool[j];
+            }
+        }
+    } else if(invokePolicy == 'PRELOAD_FUNCTION'){
+        if (functionPool.length > spotCount) {
+            return;
+        }
+    
+        for (var i = 0; i < spotCount; i++) {
+            for (var j = 0; j < functionPool.length && i < spotCount; j++) {
+                var i = i + j;
+                baseTarget['spot' + i] = functionPool[j];
+            }
         }
     }
+
+
     logger.verbose(`baseTarget ${JSON.stringify(baseTarget)}`);
     checkWindows();
 
@@ -872,101 +888,54 @@ function backFromExecution(spot) {
 
         if (target['spot0'] != null) {
 
-            logger.debug(`LOADING  ${JSON.stringify(spots)}`);
+            if(invokePolicy == 'PRELOAD_RUNTIME'){
 
-            var parent = spots['spot' + spot].parent;
+                sendSpotToPreloadRuntime(spot);
 
-            // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
+            } else if(invokePolicy == 'PRELOAD_FUNCTION'){
 
-            spots['spot' + spot].callNum = '';
-            spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * spotCount + spot}`;
-            spots['spot' + spot].status = 'LOADING_RT';
-            spots['spot' + spot].content = target['spot' + spot];
-            spots['spot' + spot].multiplier = spots['spot' + spot].multiplier + 1
+                sendSpotToPreloadFunction(spot);
 
-            logger.debug(`LOADING CONTAINER ${spots['spot' + spot].containerName}-${spots['spot' + spot].content} in SPOT ${spot}`);
-
-            logger.debug(`SPOTS ${JSON.stringify(spots)}`);
-
-            var callObject = {
-                "runtime": target['spot' + spot],
-                "registryIP": registryIP,
-                "registryPort": registryPort,
-                "containerName": spots['spot' + spot].containerName
             }
 
-            var sendMsg = {}
-            sendMsg.msgType = 'preloadRuntime';
-            sendMsg.content = callObject;
-            sendMsg.spot = spot;
-            sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
-
         } else {
-            logger.verbose(`No runtimes so no preloading`);
+            logger.verbose(`No target so no preloading`);
         }
 
     }
 
 }
 
-async function backFromPreloading(spot, runtime) {
+async function backFromPreloading(spot, content) {
 
     logger.info(`BACK FROM PRELOADING ${spot}`)
 
     var parent = spots['spot' + spot].parent;
 
-    await setLoadedSpot(parent, spot, runtime)
+    await setLoadedSpot(parent, spot, content)
         .catch((err) => { // settear el flag si ha encontrado un loaded con un runtime diferente
             logger.error(err);
         });
 }
 
-async function checkRuntimeAvailable(callObject) {
+async function checkWarmSpotAvailable(callObject) {
 
+    var warmContent = '';
 
     // Añadir el timing (insertedCall) y el runtime a la array de windowArray.
-    windowArray.push([callObject.runtime, callObject.insertedCall.timing.api, callObject.callNum]);
+    if(invokePolicy == 'PRELOAD_RUNTIME'){
+       warmContent = callObject.runtime;
+    } else if(invokePolicy == 'PRELOAD_FUNCTION'){
+        warmContent = callObject.funcName;
+    }
+    windowArray.push([warmContent, callObject.insertedCall.timing.api, callObject.callNum]);
 
     logger.debug(`WINDOWARRAY ${windowArray}`);
 
     // Recorrer todos los spots para ver si hay alguno que tenga el runtime del callobject.
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-    // var allCorrect = true;
-
-    // for (i = 0; i < spotCount; i++) {
-    //     var index = 'spot' + i;
-    //     if (spots[index].content == callObject.runtime) {
-
-    //         if (spots[index].status == 'LOADING_RT' && spots[index].buffer == null) {
-
-    //             // Espero al runtime
-
-    //             spots[index].buffer = callObject;
-
-    //             return;
-
-    //         } else if (spots[index].status == 'RUNTIME') {
-    //             // Si es así cambiar el status del spot y ejecutar.
-
-    //             spots[index].callNum = callObject.callNum;
-    //             spots[index].status = 'EXECUTING';
-
-    //             callObject.containerName = spots[index].containerName;
-
-    //             logger.debug(`SPOTS ${JSON.stringify(spots)}`);
-
-    //             execRtPreloaded(callObject, i);
-
-    //             return;
-    //         }
-
-    //     } else {
-    //         allCorrect = false;
-    //     }
-    // }
-
-    var spot = await getFirstSuitableRuntime(callObject.runtime);
+    var spot = await getFirstSuitableWarmSpot(warmContent);
 
     logger.info(`SELECTED SPOT ${spot}`);
 
@@ -988,23 +957,32 @@ async function checkRuntimeAvailable(callObject) {
 
         var parent = spots['spot' + spot].parent;
 
-        var sendMsg = {}
-        sendMsg.msgType = 'execRtPreloaded';
-        sendMsg.content = callObject;
-        sendMsg.spot = spot;
-        sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+        if(invokePolicy == 'PRELOAD_RUNTIME'){
+            var sendMsg = {}
+            sendMsg.msgType = 'execRtPreloaded';
+            sendMsg.content = callObject;
+            sendMsg.spot = spot;
+            sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+         } else if(invokePolicy == 'PRELOAD_FUNCTION'){           
+            var sendMsg = {}
+            sendMsg.msgType = 'execFuncPreloaded';
+            sendMsg.content = callObject;
+            sendMsg.spot = spot;
+            sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+         }
+
 
     }
 
 }
 
-async function getFirstSuitableRuntime(runtimeName) {
-    logger.debug(`GET FREE SUITABLE RUNTIME`);
+async function getFirstSuitableWarmSpot(warmContent) {
+    logger.debug(`GET FREE SUITABLE WARM SPOT`);
     var flag = false
     for (var i = 0; i < workerCount; i++) {
         var workerId = 'worker' + i;
         for (var j = 0; j < workerStore[workerId].spots.length; j++) {
-            var res = await setExecutingSpot(workerId, workerStore[workerId].spots[j], runtimeName)
+            var res = await setExecutingSpot(workerId, workerStore[workerId].spots[j], warmContent)
                 .catch((err) => {
                     logger.error(err);
                 });
@@ -1041,9 +1019,81 @@ async function setIntoStart(spot) {
 }
 
 
+// PRELOAD RUNTIME
+
+function sendSpotToPreloadRuntime(spot){
+
+    
+    logger.debug(`LOADING ${JSON.stringify(spots)}`);
+
+    var parent = spots['spot' + spot].parent;
+
+    // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
+
+    spots['spot' + spot].callNum = '';
+    spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * spotCount + spot}-${target['spot' + spot]}`;
+    spots['spot' + spot].status = 'LOADING_RT';
+    spots['spot' + spot].content = target['spot' + spot];
+    spots['spot' + spot].multiplier = spots['spot' + spot].multiplier + 1
+
+    logger.debug(`LOADING CONTAINER ${spots['spot' + spot].containerName} in SPOT ${spot}`);
+
+    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+    var callObject = {
+        "runtime": target['spot' + spot],
+        "registryIP": registryIP,
+        "registryPort": registryPort,
+        "containerName": spots['spot' + spot].containerName
+    }
+
+    var sendMsg = {}
+    sendMsg.msgType = 'preloadRuntime';
+    sendMsg.content = callObject;
+    sendMsg.spot = spot;
+    sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+
+}
 
 
 // PRELOAD FUNCTION
+
+function sendSpotToPreloadFunction(spot){
+
+    
+    logger.debug(`LOADING ${JSON.stringify(spots)}`);
+
+    var parent = spots['spot' + spot].parent;
+
+    // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
+
+    spots['spot' + spot].callNum = '';
+    spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * spotCount + spot}-${target['spot' + spot]}`;
+    spots['spot' + spot].status = 'LOADING_FUN';
+    spots['spot' + spot].content = target['spot' + spot];
+    spots['spot' + spot].multiplier = spots['spot' + spot].multiplier + 1
+
+    logger.debug(`LOADING CONTAINER ${spots['spot' + spot].containerName} in SPOT ${spot}`);
+
+    logger.debug(`SPOTS ${JSON.stringify(spots)}`);
+
+    var callObject = {
+        "runtime": functionStore[target['spot' + spot]].function.runtimeName,
+        "registryIP": registryIP,
+        "registryPort": registryPort,
+        "containerName": spots['spot' + spot].containerName,
+        "funcName":target['spot' + spot],
+        "containerPath":functionStore[target['spot' + spot]].runtime.path,
+        "runtimeDeps":functionStore[target['spot' + spot]].runtime.dependencies
+    }
+
+    var sendMsg = {}
+    sendMsg.msgType = 'preloadFunction';
+    sendMsg.content = callObject;
+    sendMsg.spot = spot;
+    sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
+
+}
 
 
 // Event handling
