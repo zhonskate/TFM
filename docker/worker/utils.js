@@ -17,10 +17,9 @@ function execute(logger, cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, (error, stdout, stderr) => {
             if (stderr) {
-                if(stderr.toLocaleLowerCase().includes('warning')){
+                if (stderr.toLocaleLowerCase().includes('warning')) {
                     logger.warn(stderr);
-                }
-                else{
+                } else {
                     logger.log('error', stderr);
                 }
             }
@@ -41,10 +40,9 @@ async function executeSync(logger, commandline) {
     execSync(commandline, function (error, stdout, stderr) {
 
         if (stderr) {
-            if(stderr.toLocaleLowerCase().includes('warning')){
+            if (stderr.toLocaleLowerCase().includes('warning')) {
                 logger.warn(stderr);
-            }
-            else{
+            } else {
                 logger.log('error', stderr);
             }
         }
@@ -82,7 +80,7 @@ async function runContainer(logger, runtime, registryIP, registryPort, container
 
 async function copyFunction(logger, runtime, funcName, containerName, containerPath) {
 
-    logger.verbose(`COPY DATA ${runtime} ${funcName}`);
+    logger.debug(`COPY DATA ${runtime} ${funcName}`);
 
     var commandline = `docker cp \
         ${__dirname}/uploads/${runtime}/${funcName}/. \
@@ -123,7 +121,7 @@ async function fetchOutput(logger, containerName, containerPath, callNum) {
 }
 
 function stopContainer(logger, containerName) {
-    logger.verbose(`STOP CONTAINER ${containerName}`)
+    logger.debug(`STOP CONTAINER ${containerName}`)
 
     var commandline = `docker stop \
         ${containerName}`
@@ -140,13 +138,13 @@ function deleteContainer(logger, containerName) {
     execute(logger, commandline);
 }
 
-function forceDeleteContainer(logger, containerName) {
+async function forceDeleteContainer(logger, containerName) {
     logger.debug(`DELETE CONTAINER ${containerName}`)
 
     var commandline = `docker rm -f \
         ${containerName}`
 
-    execute(logger, commandline);
+    await execute(logger, commandline);
 }
 
 async function runDockerCommand(logger, containerName, command) {

@@ -124,7 +124,7 @@ function processFunction(funcName) {
 
 function fetchFunction(funcName) {
 
-    logger.verbose(`FETCHING FUNCTION ${funcName}`);
+    logger.debug(`FETCHING FUNCTION ${funcName}`);
 
     var sendMsg = {}
     sendMsg.msgType = 'fetchFunction';
@@ -134,22 +134,10 @@ function fetchFunction(funcName) {
 }
 
 function storeFunction(body) {
-    logger.verbose(`STORING FUNCTION ${JSON.stringify(body)}`);
+
+    logger.debug(`STORING FUNCTION ${JSON.stringify(body)}`);
     functionStore[body.function.functionName] = body;
     logger.debug(`STORE ${JSON.stringify(functionStore)}`);
-
-    // FIXME: que esto funcione con docker distribuido (diversos docker daemons) lel
-
-    // var folderName = body.function.runtimeName + '/' + body.function.functionName;
-    // logger.debug(`function Name ${folderName}`)
-
-    // // Create a folder to hold the function contents
-    // var commandline = `mkdir -p uploads/${body.function.runtimeName}`
-    // utils.executeSync(logger, commandline);
-
-    // // extract the file on the newly created folder
-    // var commandline = `docker cp faas-api:/ws/uploads/${folderName} /ws/uploads/uploads/${body.function.runtimeName}`
-    // utils.executeSync(logger, commandline);
 
 }
 
@@ -187,7 +175,7 @@ function executeNoPreload(callObject, spot) {
     var timing = new Date().getTime();
     callObject.insertedCall.timing.queue = timing;
 
-    logger.verbose(`EXECUTING call ${callObject.callNum} in spot ${spot}`);
+    logger.verbose(`Executing call ${callObject.callNum} in spot ${spot}`);
 
     // invokation depends on policy
 
@@ -226,7 +214,7 @@ function liberateSpot(spot) {
 
 function setIntoStart(spot) {
 
-    logger.verbose(`Setting spot ${spot} into exec`);
+    logger.debug(`Setting spot ${spot} into exec`);
     var sendMsg = {}
     sendMsg.msgType = 'setIntoStart';
     sendMsg.content = spot;
@@ -236,7 +224,7 @@ function setIntoStart(spot) {
 
 function backFromExecution(spot) {
 
-    logger.verbose(`BACK FROM EXEC ${spot}`)
+    logger.debug(`BACK FROM EXEC ${spot}`)
 
     var sendMsg = {}
     sendMsg.msgType = 'backFromExecution';
@@ -327,7 +315,7 @@ function preloadFunction(callObject, spot) {
 
 function backFromPreloading(spot, warmContent) {
 
-    logger.verbose(`BACK FROM PRELOAD ${spot}`)
+    logger.debug(`BACK FROM PRELOAD ${spot}`)
 
     var sendMsg = {}
     sendMsg.msgType = 'backFromPreloading';
@@ -337,8 +325,8 @@ function backFromPreloading(spot, warmContent) {
 
 }
 
-function forceRemove(warmContent, spot, containerName) {
-    forceDelete(logger, containerName, warmContent);
+async function forceRemove(warmContent, spot, containerName) {
+    await forceDelete(logger, containerName, warmContent);
     backFromExecution(spot);
 
 }
@@ -355,7 +343,7 @@ function registeredWorker(content) {
     sockRou.send(JSON.stringify(sendMsg));
 
     for (i = 0; i < recSpots.length; i++) {
-        logger.verbose(`recSpot ${recSpots[i]}`);
+        logger.debug(`recSpot ${recSpots[i]}`);
 
         spots['spot' + recSpots[i]] = {};
         spots['spot' + recSpots[i]].multiplier = 0;
@@ -374,11 +362,11 @@ function registeredWorker(content) {
 //----------------------------------------------------------------------------------//
 
 sockReq.on('message', function (msg) {
-    logger.verbose(`MESSAGE REP ${msg}`);
+    logger.debug(`MESSAGE REP ${msg}`);
 });
 
 sockSub.on('message', function (msg) {
-    logger.verbose(`MESSAGE PUB ${msg}`);
+    logger.debug(`MESSAGE PUB ${msg}`);
 
     msg = JSON.parse(msg);
 
@@ -397,7 +385,7 @@ sockSub.on('message', function (msg) {
 });
 
 sockDB.on('message', function (msg) {
-    logger.verbose(`MESSAGE DB ${msg}`);
+    logger.debug(`MESSAGE DB ${msg}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {
@@ -414,7 +402,7 @@ sockDB.on('message', function (msg) {
 });
 
 sockRou.on('message', function (msg) {
-    logger.verbose(`MESSAGE ROU ${msg}`);
+    logger.debug(`MESSAGE ROU ${msg}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {
@@ -440,7 +428,7 @@ sockRou.on('message', function (msg) {
 });
 
 sockReqBrk.on('message', function (msg) {
-    logger.verbose(`MESSAGE REQBRK ${msg}`);
+    logger.debug(`MESSAGE REQBRK ${msg}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {

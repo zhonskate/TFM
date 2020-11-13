@@ -21,10 +21,6 @@ echo 'launching zookeeper'
 docker run -d --net=faas --name faas-zookeeper zookeeper:3.4
 # docker run -d -p 2181:2181 --name faas-zookeeper zookeeper:3.4
 
-echo 'launching faas-api...'
-
-docker run -d -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v log-vol:/ws/logs -v uploads-vol:/ws/uploads --net=faas --name faas-api faas-api
-
 echo 'launching faas-db...'
 
 docker run -d -v log-vol:/ws/logs --net=faas --name faas-db faas-db
@@ -40,6 +36,10 @@ docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -
 echo 'launching faas-worker 1...'
 
 docker run -d -v log-vol:/ws/logs -v /var/run/docker.sock:/var/run/docker.sock -v uploads-vol:/ws/uploads --net=faas --name faas-worker-1 faas-worker
+
+echo 'launching faas-api...'
+
+docker run -d -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v log-vol:/ws/logs -v uploads-vol:/ws/uploads --net=faas --name faas-api faas-api
 
 echo 'attaching to log...'
 

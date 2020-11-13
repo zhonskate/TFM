@@ -155,7 +155,7 @@ const windowTime = 300000;
 
 if (invokePolicy == 'PRELOAD_RUNTIME' || invokePolicy == 'PRELOAD_FUNCTION') {
 
-    logger.verbose('preload data structures');
+    logger.debug('preload data structures');
 
     var windowArray = [];
     var baseTarget = {};
@@ -205,7 +205,6 @@ async function registerWorker(availableSpots) {
         spotCount = spotCount + 1;
     }
 
-    // TODO: return the workerId to identify the worker.
     var sendMsg = {}
     sendMsg.msgType = 'response';
     sendMsg.content = {};
@@ -223,10 +222,15 @@ async function createPath(path) {
 
         zClient.create(path, function (error) {
             if (error) {
-                logger.error(`Failed to create node: ${path} due to: ${error}`);
-                reject(error);
+                if (error.getCode() == zookeeper.Exception.NODE_EXISTS) {
+                    logger.verbose(`Path ${path} is already executing`);
+                    resolve(-1);
+                } else {
+                    logger.error(`Failed to create node: ${path} due to: ${error}`);
+                    reject(error);
+                }
             } else {
-                logger.verbose(`Node: ${path} is successfully created.`);
+                logger.debug(`Node: ${path} is successfully created.`);
                 resolve(1);
             }
         });
@@ -236,25 +240,29 @@ async function createPath(path) {
 
 async function getContent(path) {
 
+    // deprecated
+
     return new Promise((resolve, reject) => {
 
         waitForZookeeper();
 
         zClient.getData(path, function (event) {
-            logger.verbose(`Got event: ${event}.`);
+            logger.debug(`Got event: ${event}.`);
         }, function (error, data, stat) {
             if (error) {
                 logger.error(error.stack);
                 reject(error.stack);
             }
 
-            logger.verbose(`Got data: ${data}`);
+            logger.debug(`Got data: ${data}`);
             resolve(data);
         });
     });
 }
 
 async function setContent(path, data) {
+
+    // Deprecated
 
     await waitForZookeeper();
 
@@ -266,7 +274,7 @@ async function setContent(path, data) {
             return;
         }
 
-        logger.verbose(`Data ${JSON.stringify(data)} is set. ${JSON.stringify(stat)}`);
+        logger.debug(`Data ${JSON.stringify(data)} is set. ${JSON.stringify(stat)}`);
     });
 
 }
@@ -275,7 +283,7 @@ async function setBusySpot(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
-        logger.info(`SETTING BUSY SPOT ${spot}`);
+        logger.debug(`SETTING BUSY SPOT ${spot}`);
 
         waitForZookeeper();
 
@@ -286,14 +294,14 @@ async function setBusySpot(worker, spot) {
         commit(function (error, results) {
             if (error) {
                 if (results[0].err == -101) {
-                    logger.verbose(`Node is already busy`);
+                    logger.debug(`Node is already busy`);
                     resolve(-1);
                 } else {
                     logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
                     reject();
                 }
             } else {
-                logger.verbose(`Node: /${worker}/busy/${spot} is successfully created.`);
+                logger.debug(`Node: /${worker}/busy/${spot} is successfully created.`);
                 resolve(spot);
             }
         });
@@ -304,7 +312,7 @@ async function setFreeSpot(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
-        logger.info(`SETTING FREE SPOT ${spot}`);
+        logger.debug(`SETTING FREE SPOT ${spot}`);
 
         waitForZookeeper();
 
@@ -315,14 +323,14 @@ async function setFreeSpot(worker, spot) {
         commit(function (error, results) {
             if (error) {
                 if (results[0].err == -101) {
-                    logger.verbose(`Node is already free`);
+                    logger.debug(`Node is already free`);
                     resolve(-1)
                 } else {
                     logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
                     reject();
                 }
             } else {
-                logger.verbose(`Node: /${worker}/free/${spot} is successfully created.`);
+                logger.debug(`Node: /${worker}/free/${spot} is successfully created.`);
                 resolve(spot);
             }
         });
@@ -333,7 +341,7 @@ async function setExecutingSpot(worker, spot, runtime) {
 
     return new Promise((resolve, reject) => {
 
-        logger.info(`SETTING EXECUTING SPOT ${spot} ${runtime}`);
+        logger.debug(`SETTING EXECUTING SPOT ${spot} ${runtime}`);
 
         waitForZookeeper();
 
@@ -346,17 +354,17 @@ async function setExecutingSpot(worker, spot, runtime) {
         commit(function (error, results) {
             if (error) {
                 if (results[0].err == -101) {
-                    logger.verbose(`Node not in loaded state`);
+                    logger.debug(`Node not in loaded state`);
                     resolve(-1);
                 } else if (results[1].err == -101) {
-                    logger.verbose(`Node loaded but with other runtime`);
+                    logger.debug(`Node loaded but with other runtime`);
                     resolve(-2);
                 } else {
                     logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
                     reject();
                 }
             } else {
-                logger.verbose(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
+                logger.debug(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
                 resolve(spot);
             }
         });
@@ -367,7 +375,7 @@ async function setLoadedSpot(worker, spot, runtime) {
 
     return new Promise((resolve, reject) => {
 
-        logger.info(`SETTING LOADED SPOT ${spot} ${runtime}`);
+        logger.debug(`SETTING LOADED SPOT ${spot} ${runtime}`);
 
         waitForZookeeper();
 
@@ -379,14 +387,14 @@ async function setLoadedSpot(worker, spot, runtime) {
         commit(function (error, results) {
             if (error) {
                 if (results[0].err == -101) {
-                    logger.verbose(`Node is already loaded`);
+                    logger.debug(`Node is already loaded`);
                     resolve(-1);
                 } else {
                     logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
                     reject();
                 }
             } else {
-                logger.verbose(`Node: /${worker}/busy/${spot}/loaded/${runtime} is successfully created.`);
+                logger.debug(`Node: /${worker}/busy/${spot}/loaded/${runtime} is successfully created.`);
                 resolve(spot);
             }
         });
@@ -395,33 +403,32 @@ async function setLoadedSpot(worker, spot, runtime) {
 
 async function removeLoaded(worker, spot) {
 
-
     return new Promise(async (resolve, reject) => {
 
-        logger.info(`REMOVING LOADED SPOT ${worker} ${spot}`);
+        logger.debug(`REMOVING LOADED SPOT ${worker} ${spot}`);
 
         waitForZookeeper();
 
         await zClient.removeRecursive(`/${worker}/busy/${spot}/loaded`, -1, async function (error) {
             if (error) {
                 if (error.getCode() == zookeeper.Exception.NO_NODE) {
-                    logger.verbose(`Node is not in loaded state`);
+                    logger.verbose(`Node: /${worker}/busy/${spot} is not in loaded state`);
                     resolve(-1);
                 } else {
                     logger.error(`Failed to execute the transaction: ${error.stack}`);
-                    reject();
+                    reject(error.stack);
                 }
             } else {
-                logger.verbose(`Node: /${worker}/busy/${spot}/loaded is successfully recursively removed.`);
+                logger.debug(`Node: /${worker}/busy/${spot}/loaded is successfully recursively removed.`);
 
                 var res = await createPath(`/${worker}/busy/${spot}/executing`).catch((err) => {
                     logger.error(`create path failed due to error ${err}`);
                 });
-                if(res==undefined){
-                    reject();
+                if (res == -1 || res == undefined) {
+                    reject(undefined);
+                } else {
+                    resolve(spot);
                 }
-
-                resolve(spot);
             }
         });
     });
@@ -432,7 +439,7 @@ async function setExecStart(worker, spot) {
 
     return new Promise((resolve, reject) => {
 
-        logger.info(`SETTING START INTO EXEC SPOT ${spot}`);
+        logger.debug(`SETTING START INTO EXEC SPOT ${spot}`);
 
         waitForZookeeper();
 
@@ -443,14 +450,14 @@ async function setExecStart(worker, spot) {
         commit(function (error, results) {
             if (error) {
                 if (results[0].err == -101) {
-                    logger.verbose(`Node already started`);
+                    logger.debug(`Node already started`);
                     resolve(-1);
                 } else {
                     logger.error(`Failed to execute the transaction: ${error} , ${JSON.stringify(results)}`);
                     reject();
                 }
             } else {
-                logger.verbose(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
+                logger.debug(`Node: /${worker}/busy/${spot}/executing is successfully created.`);
                 resolve(spot);
             }
         });
@@ -481,7 +488,7 @@ function processFunction(funcName) {
 
 function fetchFunction(funcName) {
 
-    logger.verbose(`FETCHING FUNCTION ${funcName}`);
+    logger.debug(`FETCHING FUNCTION ${funcName}`);
 
     var sendMsg = {}
     sendMsg.msgType = 'fetchFunction';
@@ -491,22 +498,9 @@ function fetchFunction(funcName) {
 }
 
 function storeFunction(body) {
-    logger.verbose(`STORING FUNCTION ${JSON.stringify(body)}`);
+    logger.debug(`STORING FUNCTION ${JSON.stringify(body)}`);
     functionStore[body.function.functionName] = body;
     logger.debug(`STORE ${JSON.stringify(functionStore)}`);
-
-    // FIXME: que esto funcione con docker distribuido (diversos docker daemons) lel
-
-    // var folderName = body.function.runtimeName + '/' + body.function.functionName;
-    // logger.debug(`function Name ${folderName}`)
-
-    // // Create a folder to hold the function contents
-    // var commandline = `mkdir -p uploads/${body.function.runtimeName}`
-    // utils.executeSync(logger, commandline);
-
-    // // extract the file on the newly created folder
-    // var commandline = `docker cp faas-api:/ws/uploads/${folderName} /ws/uploads/uploads/${body.function.runtimeName}`
-    // utils.executeSync(logger, commandline);
 
     if (invokePolicy == 'PRELOAD_FUNCTION') {
         updateBaseTarget();
@@ -519,11 +513,10 @@ function prepareCall(body) {
     var timing = new Date().getTime();
     body.timing.worker = timing;
 
-    logger.verbose(`PREPARING CALL ${JSON.stringify(body)}`);
+    logger.debug(`PREPARING CALL ${JSON.stringify(body)}`);
 
     const callNum = body.callNum;
     const funcName = body.funcName;
-    const params = body.params;
 
     logger.debug(`eC funcName ${funcName}`);
 
@@ -568,7 +561,8 @@ function enqueueCall(callObject) {
 }
 
 function storeWorker(envelope, worker) {
-    logger.info(`STORE WORKER ${worker} // ${JSON.stringify(workerStore)}`);
+    logger.info(`Stored worker ${worker}`);
+    logger.debug(`STORE WORKER ${worker} // ${JSON.stringify(workerStore)}`);
     workerStore[worker].env = envelope;
 }
 
@@ -580,7 +574,7 @@ async function checkSpots() {
     // check if there are calls in the queue
 
     if (callQueue.length == 0) {
-        logger.verbose('Call queue empty');
+        logger.debug('Call queue empty');
         return;
     }
 
@@ -588,7 +582,7 @@ async function checkSpots() {
 
     var spot = await getFirstFreeSpot();
 
-    logger.info(`SELECTED SPOT ${spot}`);
+    logger.debug(`SELECTED SPOT ${spot}`);
 
     if (spot == -1) {
         logger.verbose('No available spots');
@@ -620,9 +614,7 @@ async function selectFirstAvailable(spot) {
 
     logger.debug(`SPOTS ${JSON.stringify(spots)}`);
 
-    //executeNoPreload(callObject, spot);
-
-    //TODO: Send to the worker to execute
+    // Send to execute
 
     var sendMsg = {}
     sendMsg.msgType = 'executeNoPreload';
@@ -652,7 +644,7 @@ async function getFirstFreeSpot() {
 
 async function liberateSpot(spot) {
 
-    logger.verbose(`Liberating spot ${spot}`);
+    logger.debug(`Liberating spot ${spot}`);
 
     var parent = spots['spot' + spot].parent;
 
@@ -671,7 +663,7 @@ async function liberateSpot(spot) {
 
 function checkWindows() {
 
-    logger.verbose('CHECKING WINDOW');
+    logger.verbose('Checking window');
 
     var now = new Date().getTime();
     var limit = now - windowTime;
@@ -693,7 +685,7 @@ function checkWindows() {
 
         for (var i = 0; i < windowArray.length; i++) {
             var rt = windowArray[i][0];
-            if(rt == undefined){
+            if (rt == undefined) {
                 continue;
             }
             counts[rt] = counts[rt] ? counts[rt] + 1 : 1;
@@ -708,6 +700,7 @@ function checkWindows() {
         logger.debug(`countSorted ${JSON.stringify(countsSorted)}`);
         logger.debug(`SPOTS ${JSON.stringify(spots)}`);
         logger.debug(`CALLQUEUE ${callQueue}`)
+
         // para la ponderación cuento ticks 1/spotCount y asigno el mayor a un ceil y sucesivamente
 
         var assigned = 0;
@@ -715,7 +708,7 @@ function checkWindows() {
 
         while (assigned < spotCount) {
 
-            logger.info(`${countsSorted[mark]} ${(counts[countsSorted[mark]] / windowArray.length)} %`);
+            logger.verbose(`${countsSorted[mark]} ${(counts[countsSorted[mark]] / windowArray.length)} %`);
 
             var assignations = Math.round((counts[countsSorted[mark]] / windowArray.length) * spotCount);
             assignations = assignations + assigned
@@ -731,7 +724,7 @@ function checkWindows() {
 
     }
 
-    logger.info(`Target ${JSON.stringify(target)}`);
+    logger.verbose(`Target ${JSON.stringify(target)}`);
 
     if (callQueue.length > 0) {
         if (queueStucked == callQueue[0]) {
@@ -756,7 +749,7 @@ async function refreshSpots(allSpots) {
         }, 1000);
     }
 
-    logger.verbose('REFRESHING SPOTS');
+    logger.debug('REFRESHING SPOTS');
 
     logger.debug(`TRY TO REFRESH`);
     var flag = false;
@@ -765,17 +758,19 @@ async function refreshSpots(allSpots) {
         for (var j = 0; j < workerStore[workerId].spots.length; j++) {
             var selSpot = workerStore[workerId].spots[j]
 
-            logger.info(`trying to refresh spot ${selSpot}`);
+            logger.debug(`trying to refresh spot ${selSpot}`);
 
             var res = await removeLoaded(workerId, selSpot)
                 .catch((err) => {
-                    logger.error(err);
+                    if (err != undefined){
+                        logger.error(err);
+                    }
                 });
             logger.debug(`RES ${res}`);
             if (res != undefined && res != -1) {
                 flag = true;
 
-                logger.info(`SELECTED SPOT ${selSpot}`);
+                logger.debug(`SELECTED SPOT ${selSpot}`);
 
                 var parent = spots['spot' + selSpot].parent;
 
@@ -785,7 +780,7 @@ async function refreshSpots(allSpots) {
                 sendMsg.content = spots['spot' + selSpot].content;
                 sendMsg.spot = selSpot;
                 sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
-                logger.info(`refreshed spot ${selSpot}`);
+                logger.verbose(`refreshed spot ${selSpot}`);
 
                 if (!allSpots) {
                     return;
@@ -794,7 +789,7 @@ async function refreshSpots(allSpots) {
         }
     }
     if (flag) {
-        logger.info(`refreshed all spots`);
+        logger.verbose(`refreshed all spots`);
         return true;
     }
     logger.verbose('Everything busy');
@@ -802,22 +797,22 @@ async function refreshSpots(allSpots) {
 
 async function updateBaseTarget() {
 
-    if(invokePolicy == 'PRELOAD_RUNTIME'){
+    if (invokePolicy == 'PRELOAD_RUNTIME') {
         if (runtimePool.length > spotCount) {
             return;
         }
-    
+
         for (var i = 0; i < spotCount; i++) {
             for (var j = 0; j < runtimePool.length && i < spotCount; j++) {
                 var i = i + j;
                 baseTarget['spot' + i] = runtimePool[j];
             }
         }
-    } else if(invokePolicy == 'PRELOAD_FUNCTION'){
+    } else if (invokePolicy == 'PRELOAD_FUNCTION') {
         if (functionPool.length > spotCount) {
             return;
         }
-    
+
         for (var i = 0; i < spotCount; i++) {
             for (var j = 0; j < functionPool.length && i < spotCount; j++) {
                 var i = i + j;
@@ -856,7 +851,7 @@ async function startIntoExec() {
 
 function backFromExecution(spot) {
 
-    logger.verbose(`BACK FROM EXEC ${spot}`)
+    logger.debug(`BACK FROM EXEC ${spot}`)
 
     // check if there are calls in the queue
 
@@ -867,8 +862,6 @@ function backFromExecution(spot) {
             var parent = spots['spot' + spot].parent;
 
             // No se refresca porque sigue executing a ojos del señor
-
-            // await setAssignedSpot(parent, spot).catch((err) => { logger.error(err); });
 
             spots['spot' + spot].callNum = callObject.callNum;
             spots['spot' + spot].status = 'ASSIGNED';
@@ -888,11 +881,11 @@ function backFromExecution(spot) {
 
         if (target['spot0'] != null) {
 
-            if(invokePolicy == 'PRELOAD_RUNTIME'){
+            if (invokePolicy == 'PRELOAD_RUNTIME') {
 
                 sendSpotToPreloadRuntime(spot);
 
-            } else if(invokePolicy == 'PRELOAD_FUNCTION'){
+            } else if (invokePolicy == 'PRELOAD_FUNCTION') {
 
                 sendSpotToPreloadFunction(spot);
 
@@ -908,12 +901,13 @@ function backFromExecution(spot) {
 
 async function backFromPreloading(spot, content) {
 
-    logger.info(`BACK FROM PRELOADING ${spot}`)
+    logger.debug(`BACK FROM PRELOADING ${spot}`)
 
     var parent = spots['spot' + spot].parent;
 
     await setLoadedSpot(parent, spot, content)
-        .catch((err) => { // settear el flag si ha encontrado un loaded con un runtime diferente
+        .catch((err) => { 
+            // settear el flag si ha encontrado un loaded con un runtime diferente
             logger.error(err);
         });
 }
@@ -923,9 +917,9 @@ async function checkWarmSpotAvailable(callObject) {
     var warmContent = '';
 
     // Añadir el timing (insertedCall) y el runtime a la array de windowArray.
-    if(invokePolicy == 'PRELOAD_RUNTIME'){
-       warmContent = callObject.runtime;
-    } else if(invokePolicy == 'PRELOAD_FUNCTION'){
+    if (invokePolicy == 'PRELOAD_RUNTIME') {
+        warmContent = callObject.runtime;
+    } else if (invokePolicy == 'PRELOAD_FUNCTION') {
         warmContent = callObject.funcName;
     }
     windowArray.push([warmContent, callObject.insertedCall.timing.api, callObject.callNum]);
@@ -937,7 +931,7 @@ async function checkWarmSpotAvailable(callObject) {
 
     var spot = await getFirstSuitableWarmSpot(warmContent);
 
-    logger.info(`SELECTED SPOT ${spot}`);
+    logger.debug(`SELECTED SPOT ${spot}`);
 
     if (spot == -1) {
         logger.verbose('Every spot is busy (not loaded)');
@@ -946,6 +940,8 @@ async function checkWarmSpotAvailable(callObject) {
         logger.debug(JSON.stringify(callQueue));
     } else if (spot == -2) {
         logger.verbose('Didnt find a suitable loaded spot. Removing one random loaded');
+        callQueue.push(callObject);
+        logger.debug('PUSHED TO CALLQUEUE');
         refreshSpots(false);
     } else {
 
@@ -957,23 +953,20 @@ async function checkWarmSpotAvailable(callObject) {
 
         var parent = spots['spot' + spot].parent;
 
-        if(invokePolicy == 'PRELOAD_RUNTIME'){
+        if (invokePolicy == 'PRELOAD_RUNTIME') {
             var sendMsg = {}
             sendMsg.msgType = 'execRtPreloaded';
             sendMsg.content = callObject;
             sendMsg.spot = spot;
             sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
-         } else if(invokePolicy == 'PRELOAD_FUNCTION'){           
+        } else if (invokePolicy == 'PRELOAD_FUNCTION') {
             var sendMsg = {}
             sendMsg.msgType = 'execFuncPreloaded';
             sendMsg.content = callObject;
             sendMsg.spot = spot;
             sockRou.send([workerStore[parent].env, JSON.stringify(sendMsg)]);
-         }
-
-
+        }
     }
-
 }
 
 async function getFirstSuitableWarmSpot(warmContent) {
@@ -1021,14 +1014,12 @@ async function setIntoStart(spot) {
 
 // PRELOAD RUNTIME
 
-function sendSpotToPreloadRuntime(spot){
+function sendSpotToPreloadRuntime(spot) {
 
-    
+
     logger.debug(`LOADING ${JSON.stringify(spots)}`);
 
     var parent = spots['spot' + spot].parent;
-
-    // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
 
     spots['spot' + spot].callNum = '';
     spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * spotCount + spot}-${target['spot' + spot]}`;
@@ -1058,14 +1049,12 @@ function sendSpotToPreloadRuntime(spot){
 
 // PRELOAD FUNCTION
 
-function sendSpotToPreloadFunction(spot){
+function sendSpotToPreloadFunction(spot) {
 
-    
+
     logger.debug(`LOADING ${JSON.stringify(spots)}`);
 
     var parent = spots['spot' + spot].parent;
-
-    // TODO: lo trato como si nada y actualizo zookeeper cuando me venga de vuelta. También chequeo la cola (?)
 
     spots['spot' + spot].callNum = '';
     spots['spot' + spot].containerName = `pre${spots['spot' + spot].multiplier * spotCount + spot}-${target['spot' + spot]}`;
@@ -1082,9 +1071,9 @@ function sendSpotToPreloadFunction(spot){
         "registryIP": registryIP,
         "registryPort": registryPort,
         "containerName": spots['spot' + spot].containerName,
-        "funcName":target['spot' + spot],
-        "containerPath":functionStore[target['spot' + spot]].runtime.path,
-        "runtimeDeps":functionStore[target['spot' + spot]].runtime.dependencies
+        "funcName": target['spot' + spot],
+        "containerPath": functionStore[target['spot' + spot]].runtime.path,
+        "runtimeDeps": functionStore[target['spot' + spot]].runtime.dependencies
     }
 
     var sendMsg = {}
@@ -1100,11 +1089,11 @@ function sendSpotToPreloadFunction(spot){
 //----------------------------------------------------------------------------------//
 
 sockReq.on('message', function (msg) {
-    logger.verbose(`MESSAGE REP ${msg}`);
+    logger.debug(`MESSAGE REP ${msg}`);
 });
 
 sockSub.on('message', function (msg) {
-    logger.verbose(`MESSAGE PUB ${msg}`);
+    logger.debug(`MESSAGE PUB ${msg}`);
 
     msg = JSON.parse(msg);
 
@@ -1123,7 +1112,7 @@ sockSub.on('message', function (msg) {
 });
 
 sockDB.on('message', function (msg) {
-    logger.verbose(`MESSAGE DB ${msg}`);
+    logger.debug(`MESSAGE DB ${msg}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {
@@ -1140,36 +1129,36 @@ sockDB.on('message', function (msg) {
 });
 
 sockRou.on('message', function (envelope, msg) {
-    logger.verbose(`MESSAGE ROU ${msg}`);
-    logger.verbose(`ENVELOPE ROU ${envelope}`);
+    logger.debug(`MESSAGE ROU ${msg}`);
+    logger.debug(`ENVELOPE ROU ${envelope}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {
         case 'ready':
-            logger.info('received envelope');
+            logger.debug('received envelope');
             storeWorker(envelope, msg.content);
             break;
         case 'liberateSpot':
-            logger.info('liberating spot');
+            logger.debug('liberating spot');
             liberateSpot(msg.content);
             break;
         case 'backFromExecution':
-            logger.info('back from execution');
+            logger.debug('back from execution');
             backFromExecution(msg.content);
             break;
         case 'backFromPreloading':
-            logger.info('back from preloading');
+            logger.debug('back from preloading');
             backFromPreloading(msg.spot, msg.content);
             break;
         case 'setIntoStart':
-            logger.info('Setting spot into exec');
+            logger.debug('Setting spot into exec');
             setIntoStart(msg.content);
             break;
     }
 });
 
 sockReqBrk.on('message', function (msg) {
-    logger.verbose(`MESSAGE REQBRK ${msg}`);
+    logger.debug(`MESSAGE REQBRK ${msg}`);
     msg = JSON.parse(msg);
 
     switch (msg.msgType) {

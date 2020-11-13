@@ -99,6 +99,9 @@ loadDBs().then(() => {
 //----------------------------------------------------------------------------------//
 
 function getAllRuntimes() {
+
+    // Deprecated
+
     var solArr = colRuntimes.where(function (obj) {
         return obj.image != '';
     });
@@ -117,6 +120,8 @@ function getAllRuntimes() {
 
 function getAllFunctions() {
 
+    // Deprecated
+
     var solArr = colFunctions.where(function (obj) {
         return obj.functionName != '';
     });
@@ -134,6 +139,8 @@ function getAllFunctions() {
 }
 
 function getAllCalls() {
+
+    // Deprecated
 
     var solArr = colCalls.where(function (obj) {
         return obj.status != '';
@@ -163,25 +170,24 @@ function checkRuntimePresent() {
 }
 
 function insertRuntime(body) {
-    logger.verbose(`insertRuntime ${JSON.stringify(body)}`)
+    logger.debug(`insertRuntime ${JSON.stringify(body)}`)
     const data = colRuntimes.insert(body);
     db.saveDatabase();
     sockRep.send('done');
 }
 
 function insertFunction(body) {
-    logger.verbose(`insertFunction ${JSON.stringify(body)}`)
+    logger.debug(`insertFunction ${JSON.stringify(body)}`)
     const data = colFunctions.insert(body);
     db.saveDatabase();
     sockRep.send('done');
 }
 
 function fetchFunction(body) {
-    logger.verbose(`fetchFunction ${JSON.stringify(body)}`)
+    logger.debug(`fetchFunction ${JSON.stringify(body)}`)
     logger.debug(`funcName ${body}`);
 
     // fetch the function
-
     var funcQuery = colFunctions.where(function (obj) {
         return obj.functionName == body;
     });
@@ -209,14 +215,14 @@ function fetchFunction(body) {
 }
 
 function insertCall(body) {
-    logger.verbose(`insertCall ${JSON.stringify(body)}`);
+    logger.debug(`insertCall ${JSON.stringify(body)}`);
     const data = colCalls.insert(body);
     db.saveDatabase();
     sockRep.send('done');
 }
 
 function fetchCall(body) {
-    logger.verbose(`fetchCall ${JSON.stringify(body)}`)
+    logger.debug(`fetchCall ${JSON.stringify(body)}`)
 
     // fetch the call
 
@@ -234,7 +240,7 @@ function fetchCall(body) {
 }
 
 function updateCall(body) {
-    // TODO: completar
+
     let existingRecord = colCalls.chain().find({
         'callNum': body.callNum
     }).update(function (obj) {
@@ -261,7 +267,7 @@ function updateCall(body) {
 
 sockRep.on('message', function (msg) {
 
-    logger.verbose(`SOCKREP ${msg}`)
+    logger.debug(`SOCKREP ${msg}`)
 
     msg = JSON.parse(msg);
 
@@ -287,8 +293,6 @@ sockRep.on('message', function (msg) {
         case 'updateCall':
             updateCall(msg.content);
             break;
-
-            // TODO: return requests fetching info for workers. getFuncInfo, etc.
 
     }
 });

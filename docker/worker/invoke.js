@@ -20,23 +20,14 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     let runtimeRunCmd = callObject.runtimeRunCmd;
     let insertedCall = callObject.insertedCall;
 
-    logger.verbose(`PRELOAD NOTHING`);
+    logger.debug(`PRELOAD NOTHING`);
 
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).
 
-    // TODO: parametrize the hostpath
-
     var containerName = `${callNum}-${runtime}`;
 
-    // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
-
     await utils.runContainer(logger, runtime, registryIP, registryPort, containerName);
-
-    // TODO: copy data
-    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
-
-    // await utils.startContainer(logger, containerName);
 
     var timing = new Date().getTime();
     callObject.insertedCall.timing.runtime = timing;
@@ -68,7 +59,7 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);
     let result = JSON.parse(rawdata);
 
-    logger.verbose(`RESULT ${result.output}`);
+    logger.debug(`RESULT ${result.output}`);
 
     insertedCall.status = 'DONE';
     insertedCall.result = result.output;
@@ -76,7 +67,6 @@ async function preloadNothing(logger, callObject, CALLS_PATH) {
     return insertedCall;
 
 }
-
 
 async function forceDelete(logger, containerName, warmContent) {
 
@@ -90,24 +80,12 @@ async function preloadRuntime(logger, callObject) {
     let registryPort = callObject.registryPort;
     let containerName = callObject.containerName;
 
-    logger.verbose(`PRELOAD RUNTIME`);
+    logger.debug(`PRELOAD RUNTIME`);
 
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).
 
-    // TODO: parametrize the hostpath
-
-    // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
-
     await utils.runContainer(logger, runtime, registryIP, registryPort, containerName);
-
-    // TODO: copy data
-    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
-
-    // await utils.startContainer(logger, containerName);
-
-    // var timing = new Date().getTime();
-    // callObject.insertedCall.timing.runtime = timing;
 
 }
 
@@ -122,7 +100,7 @@ async function execRuntimePreloaded(logger, callObject, CALLS_PATH) {
     let insertedCall = callObject.insertedCall;
     let containerName = callObject.containerName;
 
-    logger.verbose(`EXEC RUNTIME PRELOADED`);
+    logger.debug(`EXEC RUNTIME PRELOADED`);
 
     await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
 
@@ -151,7 +129,7 @@ async function execRuntimePreloaded(logger, callObject, CALLS_PATH) {
     let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);
     let result = JSON.parse(rawdata);
 
-    logger.verbose(`RESULT ${result.output}`);
+    logger.debug(`RESULT ${result.output}`);
 
     insertedCall.status = 'DONE';
     insertedCall.result = result.output;
@@ -170,27 +148,12 @@ async function preloadFunction(logger, callObject) {
     let runtimeDeps = callObject.runtimeDeps;
     let funcName = callObject.funcName;
 
-    logger.verbose(`PRELOAD FUNCTION`);
+    logger.debug(`PRELOAD FUNCTION`);
 
     // launch the container volume-binding the uncompressed files. Leave the container idling 
     // (this should be done on the image I guess).
 
-    // TODO: parametrize the hostpath
-
-    // await utils.createContainer(logger, runtime, registryIP, registryPort, callNum);
-
     await utils.runContainer(logger, runtime, registryIP, registryPort, containerName);
-
-    // TODO: copy data
-    // FIXME: Atm the containerName is just created. In the future a container will be fetched for each call.
-
-    // await utils.startContainer(logger, containerName);
-
-    // var timing = new Date().getTime();
-    // callObject.insertedCall.timing.runtime = timing;
-
-    // var timing = new Date().getTime();
-    // callObject.insertedCall.timing.runtime = timing;
 
     await utils.copyFunction(logger, runtime, funcName, containerName, containerPath);
 
@@ -208,7 +171,7 @@ async function execFunctionPreloaded(logger, callObject, CALLS_PATH) {
     let insertedCall = callObject.insertedCall;
     let containerName = callObject.containerName;
 
-    logger.verbose(`EXEC FUNCTION PRELOADED`);
+    logger.debug(`EXEC FUNCTION PRELOADED`);
 
     // pass the arguments to the running function
 
@@ -228,7 +191,7 @@ async function execFunctionPreloaded(logger, callObject, CALLS_PATH) {
     let rawdata = fs.readFileSync(`${__dirname}/${CALLS_PATH}/${callNum}/output.json`);
     let result = JSON.parse(rawdata);
 
-    logger.verbose(`RESULT ${result.output}`);
+    logger.debug(`RESULT ${result.output}`);
 
     insertedCall.status = 'DONE';
     insertedCall.result = result.output;

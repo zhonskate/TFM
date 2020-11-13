@@ -44,15 +44,6 @@ const console = new logger.transports.Console({
 
 logger.add(console);
 logger.add(files);
-
-/* logger.log('silly', '6: silly');
-logger.log('debug', '5: debug');
-logger.log('verbose', '4: verbose');
-logger.log('http', '3: http');
-logger.log('info', '2: info');
-logger.log('warn', '1: warn');
-logger.log('error', '0: error'); */
-
 logger.info(`conf: ${JSON.stringify(faasConf)}`);
 
 
@@ -169,10 +160,6 @@ app.post('/registerRuntime', async function (req, res) {
 
         logger.http(`REGISTER RUNTIME ${req.body.image}`);
 
-        //TODO: Asignar una ruta para la descompresión de archivos de función.
-
-        // {image:<imageName>, path: <path>}
-
         logger.debug(JSON.stringify(req.body));
         logger.debug(req.body.image);
         logger.debug(req.body.path);
@@ -198,7 +185,6 @@ app.post('/registerRuntime', async function (req, res) {
         }
 
         // check if runtime is present in the DB
-        // if we want to make the api
 
         if (runtimeList.includes(img) == false) {
             var sendMsg = {}
@@ -206,6 +192,7 @@ app.post('/registerRuntime', async function (req, res) {
             sendMsg.content = req.body;
             sockDB.send(JSON.stringify(sendMsg));
             runtimeList.push(img);
+
             // tag image
             var commandline = `\
             docker \
@@ -220,8 +207,8 @@ app.post('/registerRuntime', async function (req, res) {
             ${registryIP}:${registryPort}/${img}`
             utils.executeSync(logger, commandline);
 
-            logger.verbose(`image ${img} uploaded to registry`);
-            // return the status
+            logger.debug(`image ${img} uploaded to registry`);
+            logger.verbose(`Runtime ${img} registered`);
 
             transmitRuntime(img);
 
@@ -245,8 +232,6 @@ app.post('/registerRuntime', async function (req, res) {
 app.post('/registerFunction/:runtimeName/:functionName', upload.single('module'), async (req, res, next) => {
 
     logger.http(`REGISTER FUNCTION ${req.params.functionName} OF RUNTIME ${req.params.runtimeName}`);
-
-    // TODO: assign function to runtime
 
     // receive from http
     try {
@@ -277,7 +262,6 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
 
 
         //check if function is registered.
-        //TODO: Accept versions of the same function, maybe other API route
 
         if (functionList.includes(req.params.functionName) == false) {
             var sendMsg = {}
@@ -297,17 +281,18 @@ app.post('/registerFunction/:runtimeName/:functionName', upload.single('module')
             var commandline = `tar -C uploads/${folderName} -zxf uploads/${req.file.filename}`
             utils.executeSync(logger, commandline);
 
-            // create the sha of the tgz
-            // var tarfile = fs.readFileSync(req.file.path, 'utf8');
-            // var hash = sha256(tarfile);
+            // FIXME: que esto funcione con docker distribuido (diversos docker daemons) lel
 
+            // var folderName = body.function.runtimeName + '/' + body.function.functionName;
+            // logger.debug(`function Name ${folderName}`)
 
-            // prepare folder to build the image
-            /* fs.rename(req.file.path,'./build/module.tar.gz',function(error, stdout, stderr){
-                if(error){console.log(error);}
-                if(stderr){console.log(stderr);}
-                if(stdout){console.log(stdout);}
-            }) */
+            // // Create a folder to hold the function contents
+            // var commandline = `mkdir -p uploads/${body.function.runtimeName}`
+            // utils.executeSync(logger, commandline);
+
+            // // extract the file on the newly created folder
+            // var commandline = `docker cp faas-api:/ws/uploads/${folderName} /ws/uploads/uploads/${body.function.runtimeName}`
+            // utils.executeSync(logger, commandline);
 
             transmitFunction(req.file.functionName);
 
@@ -335,8 +320,6 @@ app.post('/invokeFunction', async function (req, res) {
 
     callNum = callNum + 1;
 
-    // TODO: Segmentate method.
-
     var funcName = req.body.funcName;
     var params = req.body.params;
 
@@ -354,8 +337,6 @@ app.post('/invokeFunction', async function (req, res) {
         res.sendStatus(400);
         return;
     }
-
-    // TODO: Replantear. No se pueden ir haciendo llamadas a la DB a lo loco. Ver donde se hace esta vaina
 
     insert = {
         "funcName": req.body.funcName,
@@ -387,11 +368,6 @@ app.post('/invokeFunction', async function (req, res) {
 
     logger.debug(`callstore ${JSON.stringify(callStore)}`);
 
-
-    // TODO: SPLIT the method here and sort out the invocation policies.
-
-    // myEmitter.emit('event', runtime, registryIP, registryPort, callNum, funcName, containerPath, runtimeDeps, runtimeRunCmd, insertedCall);
-
     res.send('' + callNum);
 });
 
@@ -400,8 +376,6 @@ app.post('/invokeFunction', async function (req, res) {
 //----------------------------------------------------------------------------------//
 
 function updateCall(body) {
-    // TODO: falta pulir pero está cool 
-    // FIXME: meterle el functionName
 
     var timing = new Date().getTime();
     body.timing.result = timing;
@@ -473,7 +447,7 @@ function transmitCall(call) {
 
 sockRep.on("message", function (msg) {
 
-    logger.verbose(`SOCKREP ${msg}`)
+    logger.debug(`SOCKREP ${msg}`)
 
     msg = JSON.parse(msg);
 
@@ -488,9 +462,7 @@ sockRep.on("message", function (msg) {
 
 sockDB.on("message", function (msg) {
 
-    // handle these responses better
-
-    logger.verbose(`SOCKDB ${msg}`);
+    logger.debug(`SOCKDB ${msg}`);
 
 });
 
@@ -505,7 +477,7 @@ app.listen(port, () => logger.info(`FaaS listening at http://localhost:${port}`)
 //----------------------------------------------------------------------------------//
 
 process.on('SIGINT', function () {
-    logger.info('Received SIGINT');
+    logger.debug('Received SIGINT');
 
     db.saveDatabase(function (err) {
         if (err) {
