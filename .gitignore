@@ -3,6 +3,7 @@ node_modules/
 *.log
 **/logs
 **/uploads
+**/deploy
 **/calls
 **/deps
 track/

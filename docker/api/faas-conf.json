@@ -1,16 +1,31 @@
 {
     "logger":"verbose",
     "zmq": {
-        "apiRep": 2000,
-        "apiPub": 2001,
-        "db": 2002,
-        "rou": 2003,
-        "reqbrk": 2004
+        "apiRep": {
+            "ip": "localhost",
+            "port": 2000
+        },
+        "apiPub": {
+            "ip": "localhost",
+            "port": 2001
+        },
+        "db": {
+            "ip": "localhost",
+            "port": 2002
+        },
+        "rou": {
+            "ip": "localhost",
+            "port": 2003
+        },
+        "reqbrk": {
+            "ip": "localhost",
+            "port": 2004
+        }
     },
     "express":3000,
     "registry":{
-        "ip":"localhost",
+        "ip":"192.168.2.199",
         "port":5000
     },
-    "invokePolicy":"PRELOAD_NOTHING"
+    "invokePolicy":"PRELOAD_FUNCTION"
 }

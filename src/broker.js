@@ -47,11 +47,11 @@ logger.info(`conf: ${JSON.stringify(faasConf)}`);
 
 const registryIP = faasConf.registry.ip;
 const registryPort = faasConf.registry.port;
-const addressReq = `tcp://faas-api:${faasConf.zmq.apiRep}`;
-const addressSub = `tcp://faas-api:${faasConf.zmq.apiPub}`;
-const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
-const addressRou = `tcp://*:${faasConf.zmq.rou}`;
-const addressReqBrk = `tcp://*:${faasConf.zmq.reqbrk}`;
+const addressReq = `tcp://${faasConf.zmq.apiRep.ip}:${faasConf.zmq.apiRep.port}`;
+const addressSub = `tcp://${faasConf.zmq.apiRep.ip}:${faasConf.zmq.apiPub.port}`;
+const addressDB = `tcp://${faasConf.zmq.apiRep.ip}:${faasConf.zmq.db.port}`;
+const addressRou = `tcp://*:${faasConf.zmq.rou.port}`;
+const addressReqBrk = `tcp://*:${faasConf.zmq.reqbrk.port}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
@@ -78,7 +78,7 @@ logger.info(`Broker Rep service bound to ${addressReqBrk}`);
 
 //Zookeeper
 
-var zookeeperAddress = 'faas-zookeeper:2181';
+var zookeeperAddress = 'localhost:2181';
 
 var zooConnected = false;
 

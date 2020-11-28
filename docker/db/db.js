@@ -45,7 +45,7 @@ logger.add(files);
 
 //Zmq
 
-const addressReq = `tcp://*:${faasConf.zmq.db}`;
+const addressReq = `tcp://*:${faasConf.zmq.db.port}`;
 
 var sockRep = zmq.socket('rep');
 sockRep.bindSync(addressReq);

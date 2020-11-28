@@ -68,9 +68,9 @@ const port = faasConf.express;
 
 const registryIP = faasConf.registry.ip;
 const registryPort = faasConf.registry.port;
-const addressRep = `tcp://*:${faasConf.zmq.apiRep}`;
-const addressPub = `tcp://*:${faasConf.zmq.apiPub}`;
-const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
+const addressRep = `tcp://*:${faasConf.zmq.apiRep.port}`;
+const addressPub = `tcp://*:${faasConf.zmq.apiPub.port}`;
+const addressDB = `tcp://${faasConf.zmq.db.ip}:${faasConf.zmq.db.port}`;
 
 var sockRep = zmq.socket('rep');
 sockRep.bindSync(addressRep);

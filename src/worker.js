@@ -49,11 +49,11 @@ logger.info(`conf: ${JSON.stringify(faasConf)}`);
 
 // Zmq
 
-const addressReq = `tcp://faas-api:${faasConf.zmq.apiRep}`;
-const addressSub = `tcp://faas-api:${faasConf.zmq.apiPub}`;
-const addressDB = `tcp://faas-db:${faasConf.zmq.db}`;
-const addressRou = `tcp://faas-broker:${faasConf.zmq.rou}`;
-const addressReqBrk = `tcp://faas-broker:${faasConf.zmq.reqbrk}`;
+const addressReq = `tcp://${faasConf.zmq.apiRep.ip}:${faasConf.zmq.apiRep.port}`;
+const addressSub = `tcp://${faasConf.zmq.apiPub.ip}:${faasConf.zmq.apiPub.port}`;
+const addressDB = `tcp://${faasConf.zmq.db.ip}:${faasConf.zmq.db.port}`;
+const addressRou = `tcp://${faasConf.zmq.rou.ip}:${faasConf.zmq.rou.port}`;
+const addressReqBrk = `tcp://${faasConf.zmq.reqbrk.ip}:${faasConf.zmq.reqbrk.port}`;
 
 var sockReq = zmq.socket('req');
 sockReq.connect(addressReq);
